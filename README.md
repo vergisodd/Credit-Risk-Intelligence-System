@@ -9,11 +9,13 @@ End-to-end credit risk ML system predicting loan payment difficulty on 307K+ app
 
 ## Key Results
 
-| Model | AUC-ROC | Avg Precision | CV AUC (5-fold) | Optimal Threshold |
+| Model | AUC-ROC | Avg Precision | Tuned CV AUC (5-fold) | Optimal Threshold |
 |---|---:|---:|---:|---:|
 | Logistic Regression | 0.7507 | 0.2333 | N/A | 0.65 |
 | XGBoost | 0.7680 | 0.2575 | 0.7618 | 0.68 |
-| LightGBM | 0.7715 | 0.2608 | 0.7491 | 0.66 |
+| LightGBM | 0.7715 | 0.2608 | 0.7655 | 0.66 |
+
+*CV AUC for LightGBM reflects 5-fold cross-validation on the Optuna-tuned hyperparameters, not the base configuration. XGBoost CV AUC reflects post-training cross-validation on the same stratified split.*
 
 ## Business Context
 

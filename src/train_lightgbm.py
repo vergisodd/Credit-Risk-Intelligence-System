@@ -95,10 +95,42 @@ def run_base_cross_validation(
         return_train_score=False,
     )
     return {
-        "cv_auc_mean": float(scores["test_auc"].mean()),
-        "cv_auc_std": float(scores["test_auc"].std()),
-        "cv_ap_mean": float(scores["test_ap"].mean()),
-        "cv_ap_std": float(scores["test_ap"].std()),
+        "base_cv_auc_mean": float(scores["test_auc"].mean()),
+        "base_cv_auc_std": float(scores["test_auc"].std()),
+        "base_cv_ap_mean": float(scores["test_ap"].mean()),
+        "base_cv_ap_std": float(scores["test_ap"].std()),
+    }
+
+
+def run_tuned_cross_validation(
+    best_params: dict,
+    numeric_features: list[str],
+    categorical_features: list[str],
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    config: dict,
+) -> dict:
+    """Run 5-fold CV on the Optuna-tuned params for honest performance reporting."""
+    tuned_model = build_lightgbm_pipeline(numeric_features, categorical_features, best_params)
+    cv = StratifiedKFold(
+        n_splits=config["model"]["cv_folds"],
+        shuffle=True,
+        random_state=config["model"]["random_state"],
+    )
+    scores = cross_validate(
+        tuned_model,
+        X_train,
+        y_train,
+        cv=cv,
+        scoring={"auc": "roc_auc", "ap": "average_precision"},
+        n_jobs=1,
+        return_train_score=False,
+    )
+    return {
+        "tuned_cv_auc_mean": float(scores["test_auc"].mean()),
+        "tuned_cv_auc_std": float(scores["test_auc"].std()),
+        "tuned_cv_ap_mean": float(scores["test_ap"].mean()),
+        "tuned_cv_ap_std": float(scores["test_ap"].std()),
     }
 
 
@@ -158,10 +190,11 @@ def summarize_results(metrics: dict) -> None:
         "Model": "LightGBM",
         "AUC-ROC": metrics["roc_auc"],
         "Average Precision": metrics["average_precision"],
-        "CV AUC Mean": metrics["cv_auc_mean"],
-        "CV AUC Std": metrics["cv_auc_std"],
-        "CV AP Mean": metrics["cv_ap_mean"],
-        "CV AP Std": metrics["cv_ap_std"],
+        "Base CV AUC": metrics["base_cv_auc_mean"],
+        "Tuned CV AUC": metrics["tuned_cv_auc_mean"],
+        "Tuned CV AUC Std": metrics["tuned_cv_auc_std"],
+        "Tuned CV AP": metrics["tuned_cv_ap_mean"],
+        "Tuned CV AP Std": metrics["tuned_cv_ap_std"],
         "Precision": metrics["default_threshold_metrics"]["precision_default_class"],
         "Recall": metrics["default_threshold_metrics"]["recall_default_class"],
         "F1": metrics["default_threshold_metrics"]["f1_default_class"],
@@ -204,6 +237,16 @@ def main() -> None:
     model = build_lightgbm_pipeline(numeric_features, categorical_features, best_params)
     model.fit(X_train, y_train)
 
+    print("Running tuned 5-fold CV...")
+    tuned_cv_metrics = run_tuned_cross_validation(
+        best_params=best_params,
+        numeric_features=numeric_features,
+        categorical_features=categorical_features,
+        X_train=X_train,
+        y_train=y_train,
+        config=config,
+    )
+
     print("Evaluating holdout performance...")
     y_proba = model.predict_proba(X_test)[:, 1]
     y_pred = (y_proba >= threshold).astype(int)
@@ -213,6 +256,7 @@ def main() -> None:
         "roc_auc": default_metrics["roc_auc"],
         "average_precision": default_metrics["average_precision"],
         **cv_metrics,
+        **tuned_cv_metrics,
         "best_params": best_params,
         "default_threshold_metrics": default_metrics,
         "classification_report_threshold_0_50": classification_report(
