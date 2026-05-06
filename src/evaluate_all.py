@@ -59,7 +59,10 @@ def get_cv_auc(config: dict, model_name: str, report_key: str) -> float:
     return float(metrics.get("cv_auc_mean", float("nan")))
 
 
-def find_f1_optimal_threshold(y_true, y_proba) -> tuple[float, dict]:
+def find_f1_optimal_threshold(
+    y_true: pd.Series | np.ndarray,
+    y_proba: np.ndarray,
+) -> tuple[float, dict]:
     """Find the F1-maximizing threshold for a model."""
     rows = []
     for threshold in np.round(np.arange(0.05, 0.951, 0.01), 2):
@@ -71,7 +74,7 @@ def find_f1_optimal_threshold(y_true, y_proba) -> tuple[float, dict]:
 
 
 def build_comparison_table(
-    y_test,
+    y_test: pd.Series | np.ndarray,
     scores: dict[str, np.ndarray],
     default_threshold: float,
     config: dict,
@@ -114,7 +117,11 @@ def bureau_improvement_note(comparison_df: pd.DataFrame) -> str | None:
     return f"LightGBM+Bureau achieved +{improvement:.4f} AUC improvement from bureau feature integration"
 
 
-def save_combined_roc(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def save_combined_roc(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a combined ROC curve for all models."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -133,7 +140,11 @@ def save_combined_roc(y_test, scores: dict[str, np.ndarray], output_path: str) -
     plt.close(fig)
 
 
-def save_combined_pr(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def save_combined_pr(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a combined Precision-Recall curve for all models."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -151,7 +162,11 @@ def save_combined_pr(y_test, scores: dict[str, np.ndarray], output_path: str) ->
     plt.close(fig)
 
 
-def save_calibration_plot(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def save_calibration_plot(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a reliability diagram for XGBoost and LightGBM."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(7, 6))
@@ -169,7 +184,11 @@ def save_calibration_plot(y_test, scores: dict[str, np.ndarray], output_path: st
     plt.close(fig)
 
 
-def save_cost_threshold_outputs(y_test, y_proba: np.ndarray, config: dict) -> None:
+def save_cost_threshold_outputs(
+    y_test: pd.Series | np.ndarray,
+    y_proba: np.ndarray,
+    config: dict,
+) -> None:
     """Save cost-threshold CSV and visual for the LightGBM model."""
     scenario_a = config["thresholds"]["business_scenarios"]["lender"]
     scenario_b = config["thresholds"]["business_scenarios"]["balanced"]

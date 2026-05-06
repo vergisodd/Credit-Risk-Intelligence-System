@@ -38,6 +38,19 @@ FEATURE_INTERPRETATIONS = {
     "ANNUITY_INCOME_RATIO": "Higher annuity payments relative to income can pressure monthly cash flow.",
     "EMPLOYMENT_YEARS": "Employment tenure can provide stability signal, although it is not causal proof.",
     "DAYS_EMPLOYED_CLEAN": "Cleaned employment duration captures tenure after removing dataset sentinel values.",
+    "BUREAU_LOAN_COUNT": "Total number of previous credit bureau loans; more loans can indicate credit dependence.",
+    "BUREAU_ACTIVE_LOAN_COUNT": "Currently open bureau loans; high counts may indicate stretched repayment capacity.",
+    "BUREAU_CLOSED_LOAN_COUNT": "Successfully closed loans can provide positive credit history signal.",
+    "BUREAU_AVG_DAYS_CREDIT": "Average time since bureau credit lines were opened; more recent credit can indicate higher need.",
+    "BUREAU_AVG_DAYS_CREDIT_ENDDATE": "Average days until bureau credit lines close; longer terms may indicate larger obligations.",
+    "BUREAU_MAX_DAYS_OVERDUE": "Maximum days overdue on any bureau loan; any overdue history is a strong risk signal.",
+    "BUREAU_MEAN_DAYS_OVERDUE": "Average overdue days across all bureau loans; even small values elevate risk.",
+    "BUREAU_SUM_AMT_CREDIT_SUM": "Total credit exposure across all bureau loans; indicates overall debt burden.",
+    "BUREAU_SUM_AMT_CREDIT_SUM_DEBT": "Total outstanding debt on bureau loans; directly captures unresolved obligations.",
+    "BUREAU_SUM_AMT_CREDIT_SUM_OVERDUE": "Total overdue amount across bureau loans; even small overdue sums are material.",
+    "BUREAU_ACTIVE_DEBT_RATIO": "Ratio of outstanding debt to total bureau credit; higher ratios indicate less repayment progress.",
+    "BUREAU_PROLONGED_LOAN_COUNT": "Count of bureau loans with extended terms; prolongation often indicates repayment difficulty.",
+    "BUREAU_CREDIT_ACTIVE_RATIO": "Share of bureau loans still active; high ratios may indicate difficulty closing obligations.",
 }
 
 
@@ -50,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def to_dense_array(feature_matrix):
+def to_dense_array(feature_matrix: Any) -> np.ndarray:
     """Convert sparse matrices to dense arrays for SHAP plotting."""
     if sparse.issparse(feature_matrix):
         return feature_matrix.toarray()
@@ -64,7 +77,7 @@ def strip_transformer_prefix(feature_name: str) -> str:
     return feature_name
 
 
-def get_transformer_columns(preprocessor) -> tuple[list[str], list[str]]:
+def get_transformer_columns(preprocessor: Any) -> tuple[list[str], list[str]]:
     """Extract original numeric and categorical columns from a fitted preprocessor."""
     numeric_features = []
     categorical_features = []
@@ -76,7 +89,7 @@ def get_transformer_columns(preprocessor) -> tuple[list[str], list[str]]:
     return numeric_features, categorical_features
 
 
-def get_transformed_feature_names(preprocessor) -> list[str]:
+def get_transformed_feature_names(preprocessor: Any) -> list[str]:
     """Get readable feature names after preprocessing."""
     raw_feature_names = preprocessor.get_feature_names_out()
     return [strip_transformer_prefix(str(feature_name)) for feature_name in raw_feature_names]
@@ -96,7 +109,7 @@ def map_to_original_feature(
     return transformed_feature
 
 
-def get_feature_metadata(preprocessor) -> pd.DataFrame:
+def get_feature_metadata(preprocessor: Any) -> pd.DataFrame:
     """Create transformed-to-original feature metadata."""
     transformed_features = get_transformed_feature_names(preprocessor)
     numeric_features, categorical_features = get_transformer_columns(preprocessor)

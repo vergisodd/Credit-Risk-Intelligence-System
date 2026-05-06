@@ -242,7 +242,7 @@ def save_dataframe(df: pd.DataFrame, output_path: str | Path) -> None:
     df.to_csv(output_file, index=False)
 
 
-def save_model_artifact(model, output_path: str | Path) -> None:
+def save_model_artifact(model: object, output_path: str | Path) -> None:
     """
     Persist a fitted model pipeline.
     """
@@ -253,7 +253,7 @@ def save_model_artifact(model, output_path: str | Path) -> None:
     joblib.dump(model, output_file)
 
 
-def load_model_artifact(model_path: str | Path):
+def load_model_artifact(model_path: str | Path) -> object:
     """
     Load a fitted model pipeline with a clear missing-file error.
     """

@@ -26,7 +26,7 @@ def assign_risk_tier(default_probability: float, config: dict) -> str:
     return "High Risk"
 
 
-def predict_risk(model, X: pd.DataFrame, config: dict) -> pd.DataFrame:
+def predict_risk(model: object, X: pd.DataFrame, config: dict) -> pd.DataFrame:
     """Generate default-risk predictions for applicant data."""
     probabilities = model.predict_proba(X)[:, 1]
     predictions = (probabilities >= config["thresholds"]["default"]).astype(int)
