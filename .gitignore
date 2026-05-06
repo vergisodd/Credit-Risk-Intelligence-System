@@ -24,6 +24,9 @@ data/processed/*.csv
 *.joblib
 !models/.gitkeep
 
+# Generated interactive app artifacts
+visuals/shap_applicant_current.png
+
 # Environment variables
 .env
 .streamlit/secrets.toml
