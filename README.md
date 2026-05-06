@@ -341,6 +341,46 @@ streamlit run app/streamlit_app.py
 
 ---
 
+## Streamlit App Screenshots
+
+The Streamlit app includes pages for:
+
+- Project overview
+- Applicant-level risk prediction
+- Logistic Regression vs XGBoost model comparison
+- Threshold analysis
+- Explainability / feature importance
+
+Screenshots will be added after capturing the local Streamlit app pages.
+
+Expected screenshot files:
+
+- `screenshots/project_overview.png`
+- `screenshots/applicant_risk_prediction.png`
+- `screenshots/model_comparison.png`
+- `screenshots/threshold_analysis.png`
+- `screenshots/explainability.png`
+
+### How to Capture Screenshots
+
+Run the Streamlit app locally:
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+Then capture each page and save the images as:
+
+```text
+screenshots/project_overview.png
+screenshots/applicant_risk_prediction.png
+screenshots/model_comparison.png
+screenshots/threshold_analysis.png
+screenshots/explainability.png
+```
+
+---
+
 ## Visual Examples
 
 ### ROC Curves
@@ -374,6 +414,13 @@ Credit-Risk-Intelligence-System/
 │   └── .gitkeep
 ├── notebooks/
 │   └── 01_eda_baseline.ipynb
+├── screenshots/
+│   ├── .gitkeep
+│   ├── project_overview.png (expected)
+│   ├── applicant_risk_prediction.png (expected)
+│   ├── model_comparison.png (expected)
+│   ├── threshold_analysis.png (expected)
+│   └── explainability.png (expected)
 ├── reports/
 │   ├── baseline_model_metrics.json
 │   ├── business_recommendations.md
