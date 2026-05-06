@@ -5,6 +5,7 @@ Shared modelling, evaluation, and plotting helpers.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -32,9 +33,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.config_loader import resolve_path
+from src.config_loader import load_config, resolve_path
 from src.data_cleaning import get_feature_types, load_and_clean
 from src.feature_engineering import add_all_features
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def create_one_hot_encoder(sparse_output: bool = False) -> OneHotEncoder:
@@ -84,6 +88,41 @@ def load_engineered_data(validate_schema: bool = True) -> tuple[pd.DataFrame, pd
     X, y, _ = load_and_clean(validate_schema=validate_schema)
     X = add_all_features(X)
     return X, y
+
+
+def load_engineered_data_with_bureau(validate_schema: bool = True) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Load application features joined with bureau aggregations.
+
+    Falls back to application-only features if bureau.csv is not available.
+    """
+    X, y, _ = load_and_clean(validate_schema=validate_schema)
+    X = add_all_features(X)
+
+    try:
+        from src.feature_engineering_bureau import BUREAU_FEATURES, load_bureau_features
+
+        bureau_agg = load_bureau_features()
+        config = load_config()
+        raw_path = resolve_path(config["paths"]["raw_data"])
+        sk_ids = pd.read_csv(raw_path, usecols=["SK_ID_CURR"])["SK_ID_CURR"].reset_index(drop=True)
+        X_with_id = X.copy()
+        X_with_id["SK_ID_CURR"] = sk_ids.values
+        X_joined = X_with_id.merge(bureau_agg, on="SK_ID_CURR", how="left")
+        X_joined = X_joined.drop(columns=["SK_ID_CURR"])
+        X_joined[BUREAU_FEATURES] = X_joined[BUREAU_FEATURES].fillna(0)
+        LOGGER.info(
+            "Bureau features joined. Shape: %s (added %s columns)",
+            X_joined.shape,
+            len(BUREAU_FEATURES),
+        )
+        return X_joined, y
+    except FileNotFoundError:
+        LOGGER.warning(
+            "bureau.csv not found. Running without bureau features. "
+            "Place bureau.csv at the configured bureau_data path and rerun for improved AUC."
+        )
+        return X, y
 
 
 def make_train_test_split(
@@ -203,7 +242,7 @@ def save_dataframe(df: pd.DataFrame, output_path: str | Path) -> None:
     df.to_csv(output_file, index=False)
 
 
-def save_model_artifact(model, output_path: str | Path) -> None:
+def save_model_artifact(model: object, output_path: str | Path) -> None:
     """
     Persist a fitted model pipeline.
     """
@@ -214,7 +253,7 @@ def save_model_artifact(model, output_path: str | Path) -> None:
     joblib.dump(model, output_file)
 
 
-def load_model_artifact(model_path: str | Path):
+def load_model_artifact(model_path: str | Path) -> object:
     """
     Load a fitted model pipeline with a clear missing-file error.
     """

@@ -47,6 +47,7 @@ def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
 
 
 def add_credit_income_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """Add credit amount divided by applicant income."""
     if {"AMT_CREDIT", "AMT_INCOME_TOTAL"}.issubset(df.columns):
         LOGGER.info("Adding CREDIT_INCOME_RATIO")
         df["CREDIT_INCOME_RATIO"] = safe_divide(df["AMT_CREDIT"], df["AMT_INCOME_TOTAL"])
@@ -54,6 +55,7 @@ def add_credit_income_ratio(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_annuity_income_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """Add annuity payment divided by applicant income."""
     if {"AMT_ANNUITY", "AMT_INCOME_TOTAL"}.issubset(df.columns):
         LOGGER.info("Adding ANNUITY_INCOME_RATIO")
         df["ANNUITY_INCOME_RATIO"] = safe_divide(df["AMT_ANNUITY"], df["AMT_INCOME_TOTAL"])
@@ -61,6 +63,7 @@ def add_annuity_income_ratio(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_goods_credit_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """Add goods price divided by credit amount."""
     if {"AMT_GOODS_PRICE", "AMT_CREDIT"}.issubset(df.columns):
         LOGGER.info("Adding GOODS_CREDIT_RATIO")
         df["GOODS_CREDIT_RATIO"] = safe_divide(df["AMT_GOODS_PRICE"], df["AMT_CREDIT"])
@@ -68,6 +71,7 @@ def add_goods_credit_ratio(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_credit_term_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """Add annuity amount divided by credit amount."""
     if {"AMT_ANNUITY", "AMT_CREDIT"}.issubset(df.columns):
         LOGGER.info("Adding CREDIT_TERM_RATIO")
         df["CREDIT_TERM_RATIO"] = safe_divide(df["AMT_ANNUITY"], df["AMT_CREDIT"])
@@ -75,6 +79,7 @@ def add_credit_term_ratio(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_income_per_family_member(df: pd.DataFrame) -> pd.DataFrame:
+    """Add income normalized by family member count."""
     if {"AMT_INCOME_TOTAL", "CNT_FAM_MEMBERS"}.issubset(df.columns):
         LOGGER.info("Adding INCOME_PER_FAMILY_MEMBER")
         df["INCOME_PER_FAMILY_MEMBER"] = safe_divide(
@@ -84,6 +89,7 @@ def add_income_per_family_member(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_age_years(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert applicant age from negative days to positive years."""
     if "DAYS_BIRTH" in df.columns:
         LOGGER.info("Adding AGE_YEARS")
         df["AGE_YEARS"] = np.abs(df["DAYS_BIRTH"]) / 365.25
@@ -91,6 +97,7 @@ def add_age_years(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_employment_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean employment sentinel values and convert tenure to years."""
     if "DAYS_EMPLOYED" in df.columns:
         LOGGER.info("Adding employment duration features")
         df["DAYS_EMPLOYED_CLEAN"] = df["DAYS_EMPLOYED"].replace(365243, np.nan)
@@ -99,6 +106,7 @@ def add_employment_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_external_source_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add aggregate and interaction features from external source scores."""
     ext_source_columns = [
         column for column in ["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]
         if column in df.columns
@@ -121,6 +129,7 @@ def add_external_source_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_credit_to_income_term(df: pd.DataFrame) -> pd.DataFrame:
+    """Add credit amount relative to income and estimated term burden."""
     required = {"AMT_CREDIT", "AMT_INCOME_TOTAL", "CREDIT_TERM_RATIO"}
     if required.issubset(df.columns):
         LOGGER.info("Adding CREDIT_TO_INCOME_TERM")

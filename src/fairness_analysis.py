@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -24,21 +25,25 @@ GENDER_COLUMN = "CODE_GENDER"
 EDUCATION_COLUMN = "NAME_EDUCATION_TYPE"
 
 
-def safe_auc(y_true, y_proba) -> float:
+def safe_auc(y_true: pd.Series | np.ndarray, y_proba: np.ndarray) -> float:
     """Return ROC-AUC when both classes are present."""
     if pd.Series(y_true).nunique() < 2:
         return float("nan")
     return float(roc_auc_score(y_true, y_proba))
 
 
-def safe_average_precision(y_true, y_proba) -> float:
+def safe_average_precision(y_true: pd.Series | np.ndarray, y_proba: np.ndarray) -> float:
     """Return Average Precision when at least one positive case is present."""
     if pd.Series(y_true).sum() == 0:
         return float("nan")
     return float(average_precision_score(y_true, y_proba))
 
 
-def rate_metrics(y_true, y_proba, threshold: float) -> dict:
+def rate_metrics(
+    y_true: pd.Series | np.ndarray,
+    y_proba: np.ndarray,
+    threshold: float,
+) -> dict:
     """Calculate threshold metrics for one subgroup."""
     y_pred = (np.asarray(y_proba) >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
@@ -96,7 +101,7 @@ def disaggregated_metrics(
 
 
 def train_without_gender(
-    full_pipeline,
+    full_pipeline: Any,
     X_train: pd.DataFrame,
     y_train: pd.Series,
     X_test: pd.DataFrame,

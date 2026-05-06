@@ -1,4 +1,4 @@
-"""Train a LightGBM credit risk pipeline with Optuna tuning."""
+"""Train a LightGBM credit risk pipeline with bureau aggregations."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from src.model_utils import (
     calculate_scale_pos_weight,
     evaluate_predictions,
     get_feature_type_lists,
-    load_engineered_data,
+    load_engineered_data_with_bureau,
     make_train_test_split,
     run_threshold_analysis,
     save_confusion_matrix_visual,
@@ -187,7 +187,7 @@ def optimize_hyperparameters(
 def summarize_results(metrics: dict) -> None:
     """Print a clean summary table."""
     row = {
-        "Model": "LightGBM",
+        "Model": "LightGBM+Bureau",
         "AUC-ROC": metrics["roc_auc"],
         "Average Precision": metrics["average_precision"],
         "Base CV AUC": metrics["base_cv_auc_mean"],
@@ -208,8 +208,9 @@ def main() -> None:
     config = load_config()
     threshold = config["thresholds"]["default"]
 
+    print("Training LightGBM with bureau features...")
     print("Loading and engineering data...")
-    X, y = load_engineered_data()
+    X, y = load_engineered_data_with_bureau()
     numeric_features, categorical_features = get_feature_type_lists(X)
 
     print("Creating stratified train/test split...")
@@ -252,7 +253,7 @@ def main() -> None:
     y_pred = (y_proba >= threshold).astype(int)
     default_metrics = evaluate_predictions(y_test, y_proba, threshold)
     metrics = {
-        "model_name": "lightgbm_credit_risk_model",
+        "model_name": "lightgbm_bureau_credit_risk_model",
         "roc_auc": default_metrics["roc_auc"],
         "average_precision": default_metrics["average_precision"],
         **cv_metrics,
@@ -275,28 +276,28 @@ def main() -> None:
     )
 
     print("Saving model, metrics, and visuals...")
-    save_model_artifact(model, config["artifacts"]["lightgbm_model"])
-    save_json(metrics, config["reports"]["lightgbm_metrics"])
-    save_dataframe(threshold_df, config["reports"]["lightgbm_threshold_analysis"])
+    save_model_artifact(model, config["artifacts"]["lightgbm_bureau_model"])
+    save_json(metrics, config["reports"]["lightgbm_bureau_metrics"])
+    save_dataframe(threshold_df, config["reports"]["lgbm_bureau_threshold_analysis"])
     save_roc_curve_from_scores(
         y_test,
         y_proba,
-        config["visuals"]["roc_lightgbm"],
-        label="LightGBM",
+        config["visuals"]["roc_lightgbm_bureau"],
+        label="LightGBM+Bureau",
     )
     save_precision_recall_curve_from_scores(
         y_test,
         y_proba,
-        config["visuals"]["pr_lightgbm"],
-        label="LightGBM",
+        config["visuals"]["pr_lightgbm_bureau"],
+        label="LightGBM+Bureau",
         operating_points=config["thresholds"]["operating_points"],
     )
     save_confusion_matrix_visual(
         y_test,
         y_proba,
         threshold,
-        config["visuals"]["confusion_matrix_lightgbm"],
-        title=f"Confusion Matrix - LightGBM Threshold {threshold:.2f}",
+        config["visuals"]["confusion_matrix_lightgbm_bureau"],
+        title=f"Confusion Matrix - LightGBM+Bureau Threshold {threshold:.2f}",
     )
 
     summarize_results(metrics)

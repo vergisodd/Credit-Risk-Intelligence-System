@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -15,27 +16,53 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
 
 from src.config_loader import ensure_parent_dir, load_config, resolve_path
-from src.model_utils import evaluate_predictions, load_engineered_data, load_model_artifact, make_train_test_split, save_dataframe
+from src.model_utils import (
+    evaluate_predictions,
+    load_engineered_data,
+    load_engineered_data_with_bureau,
+    load_model_artifact,
+    make_train_test_split,
+    save_dataframe,
+)
 from src.threshold_optimizer import find_optimal_threshold
 
 
 MODEL_SPECS = [
-    ("Logistic Regression", "logistic_model"),
-    ("XGBoost", "xgboost_model"),
-    ("LightGBM", "lightgbm_model"),
+    ("Logistic Regression", "logistic_model", "baseline_metrics", "application", False),
+    ("XGBoost", "xgboost_model", "xgboost_metrics", "application", False),
+    ("LightGBM", "lightgbm_model", "lightgbm_metrics", "application", False),
+    ("LightGBM+Bureau", "lightgbm_bureau_model", "lightgbm_bureau_metrics", "bureau", True),
 ]
 
 
-def get_scores(config: dict, X_test: pd.DataFrame) -> dict[str, np.ndarray]:
+def get_scores(config: dict, test_sets: dict[str, pd.DataFrame]) -> dict[str, np.ndarray]:
     """Load model artifacts and score the shared holdout set."""
     scores = {}
-    for model_name, artifact_key in MODEL_SPECS:
+    for model_name, artifact_key, _, test_set_key, optional in MODEL_SPECS:
+        artifact_path = resolve_path(config["artifacts"][artifact_key])
+        if optional and not artifact_path.exists():
+            continue
         model = load_model_artifact(config["artifacts"][artifact_key])
-        scores[model_name] = model.predict_proba(X_test)[:, 1]
+        scores[model_name] = model.predict_proba(test_sets[test_set_key])[:, 1]
     return scores
 
 
-def find_f1_optimal_threshold(y_true, y_proba) -> tuple[float, dict]:
+def get_cv_auc(config: dict, model_name: str, report_key: str) -> float:
+    """Read the model's reported cross-validation AUC for comparison output."""
+    report_path = resolve_path(config["reports"][report_key])
+    if not report_path.exists():
+        return float("nan")
+    with report_path.open("r", encoding="utf-8") as file:
+        metrics = json.load(file)
+    if model_name in {"LightGBM", "LightGBM+Bureau"}:
+        return float(metrics.get("tuned_cv_auc_mean", metrics.get("cv_auc_mean", float("nan"))))
+    return float(metrics.get("cv_auc_mean", float("nan")))
+
+
+def find_f1_optimal_threshold(
+    y_true: pd.Series | np.ndarray,
+    y_proba: np.ndarray,
+) -> tuple[float, dict]:
     """Find the F1-maximizing threshold for a model."""
     rows = []
     for threshold in np.round(np.arange(0.05, 0.951, 0.01), 2):
@@ -46,10 +73,18 @@ def find_f1_optimal_threshold(y_true, y_proba) -> tuple[float, dict]:
     return float(best_row["threshold"]), best_row.to_dict()
 
 
-def build_comparison_table(y_test, scores: dict[str, np.ndarray], default_threshold: float) -> pd.DataFrame:
+def build_comparison_table(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    default_threshold: float,
+    config: dict,
+) -> pd.DataFrame:
     """Create the all-model comparison table."""
     rows = []
     for model_name, y_proba in scores.items():
+        report_key = next(
+            report_key for spec_name, _, report_key, _, _ in MODEL_SPECS if spec_name == model_name
+        )
         optimal_threshold, optimal_metrics = find_f1_optimal_threshold(y_test, y_proba)
         default_metrics = evaluate_predictions(y_test, y_proba, default_threshold)
         rows.append(
@@ -57,6 +92,7 @@ def build_comparison_table(y_test, scores: dict[str, np.ndarray], default_thresh
                 "Model": model_name,
                 "AUC-ROC": roc_auc_score(y_test, y_proba),
                 "Average Precision": average_precision_score(y_test, y_proba),
+                "Tuned CV AUC": get_cv_auc(config, model_name, report_key),
                 "F1-Default": default_metrics["f1_default_class"],
                 "Precision-Default": default_metrics["precision_default_class"],
                 "Recall-Default": default_metrics["recall_default_class"],
@@ -68,7 +104,24 @@ def build_comparison_table(y_test, scores: dict[str, np.ndarray], default_thresh
     return pd.DataFrame(rows)
 
 
-def save_combined_roc(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def bureau_improvement_note(comparison_df: pd.DataFrame) -> str | None:
+    """Describe the holdout AUC lift from bureau features when available."""
+    model_names = set(comparison_df["Model"])
+    if {"LightGBM", "LightGBM+Bureau"} - model_names:
+        return None
+    lightgbm_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM", "AUC-ROC"].iloc[0])
+    bureau_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM+Bureau", "AUC-ROC"].iloc[0])
+    improvement = bureau_auc - lightgbm_auc
+    if improvement <= 0:
+        return None
+    return f"LightGBM+Bureau achieved +{improvement:.4f} AUC improvement from bureau feature integration"
+
+
+def save_combined_roc(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a combined ROC curve for all models."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -87,7 +140,11 @@ def save_combined_roc(y_test, scores: dict[str, np.ndarray], output_path: str) -
     plt.close(fig)
 
 
-def save_combined_pr(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def save_combined_pr(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a combined Precision-Recall curve for all models."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -105,7 +162,11 @@ def save_combined_pr(y_test, scores: dict[str, np.ndarray], output_path: str) ->
     plt.close(fig)
 
 
-def save_calibration_plot(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
+def save_calibration_plot(
+    y_test: pd.Series | np.ndarray,
+    scores: dict[str, np.ndarray],
+    output_path: str,
+) -> None:
     """Save a reliability diagram for XGBoost and LightGBM."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(7, 6))
@@ -123,7 +184,11 @@ def save_calibration_plot(y_test, scores: dict[str, np.ndarray], output_path: st
     plt.close(fig)
 
 
-def save_cost_threshold_outputs(y_test, y_proba: np.ndarray, config: dict) -> None:
+def save_cost_threshold_outputs(
+    y_test: pd.Series | np.ndarray,
+    y_proba: np.ndarray,
+    config: dict,
+) -> None:
     """Save cost-threshold CSV and visual for the LightGBM model."""
     scenario_a = config["thresholds"]["business_scenarios"]["lender"]
     scenario_b = config["thresholds"]["business_scenarios"]["balanced"]
@@ -168,7 +233,11 @@ def save_cost_threshold_outputs(y_test, y_proba: np.ndarray, config: dict) -> No
     plt.close(fig)
 
 
-def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) -> None:
+def update_model_comparison_report(
+    comparison_df: pd.DataFrame,
+    config: dict,
+    note: str | None = None,
+) -> None:
     """Write a compact model comparison Markdown report."""
     best_row = comparison_df.sort_values("AUC-ROC", ascending=False).iloc[0]
     output_file = ensure_parent_dir(config["reports"]["model_comparison_md"])
@@ -179,6 +248,7 @@ def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) ->
     markdown_table = "\n".join([f"| {header} |", f"| {separator} |", *[f"| {row} |" for row in rows]])
     low_tier = config["thresholds"]["risk_tiers"]["low"]
     high_tier = config["thresholds"]["risk_tiers"]["medium"]
+    note_block = f"\n{note}\n" if note else ""
     report = f"""# Model Comparison Report
 
 ## Summary
@@ -186,6 +256,7 @@ def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) ->
 The strongest holdout model is **{best_row["Model"]}** with ROC-AUC {best_row["AUC-ROC"]:.4f} and Average Precision {best_row["Average Precision"]:.4f}.
 
 {markdown_table}
+{note_block}
 
 ## Calibration Interpretation
 
@@ -200,10 +271,21 @@ def main() -> None:
     print("Loading holdout split...")
     X, y = load_engineered_data()
     _, X_test, _, y_test = make_train_test_split(X, y, config)
+    test_sets = {"application": X_test}
+    bureau_artifact_path = resolve_path(config["artifacts"]["lightgbm_bureau_model"])
+    if bureau_artifact_path.exists():
+        X_bureau, y_bureau = load_engineered_data_with_bureau()
+        _, X_test_bureau, _, y_test_bureau = make_train_test_split(X_bureau, y_bureau, config)
+        if not y_test.reset_index(drop=True).equals(y_test_bureau.reset_index(drop=True)):
+            raise ValueError("Bureau and application holdout splits do not align.")
+        test_sets["bureau"] = X_test_bureau
 
     print("Scoring all trained model pipelines...")
-    scores = get_scores(config, X_test)
-    comparison_df = build_comparison_table(y_test, scores, config["thresholds"]["default"])
+    scores = get_scores(config, test_sets)
+    comparison_df = build_comparison_table(y_test, scores, config["thresholds"]["default"], config)
+    improvement_note = bureau_improvement_note(comparison_df)
+    if improvement_note:
+        print(improvement_note)
 
     print("Saving comparison outputs...")
     save_dataframe(comparison_df, config["reports"]["model_comparison_full"])
@@ -211,7 +293,7 @@ def main() -> None:
     save_combined_pr(y_test, scores, config["visuals"]["pr_comparison_all_models"])
     save_calibration_plot(y_test, scores, config["visuals"]["calibration_plot"])
     save_cost_threshold_outputs(y_test, scores["LightGBM"], config)
-    update_model_comparison_report(comparison_df, config)
+    update_model_comparison_report(comparison_df, config, improvement_note)
 
     print()
     print(comparison_df.to_string(index=False, float_format=lambda value: f"{value:.4f}"))

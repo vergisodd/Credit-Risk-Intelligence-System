@@ -1,4 +1,6 @@
-.PHONY: install train-lr train-xgb train-lgbm train-all evaluate explain fairness app test pipeline
+# Note: train-lgbm-bureau requires bureau.csv in data/raw/. See README for download.
+
+.PHONY: install train-lr train-xgb train-lgbm train-lgbm-bureau train-all evaluate explain fairness app test pipeline
 
 install:
 	pip install -r requirements.txt
@@ -12,7 +14,10 @@ train-xgb:
 train-lgbm:
 	python src/train_lightgbm.py
 
-train-all: train-lr train-xgb train-lgbm
+train-lgbm-bureau:
+	python src/train_lightgbm_bureau.py
+
+train-all: train-lr train-xgb train-lgbm train-lgbm-bureau
 
 evaluate:
 	python src/evaluate_all.py

@@ -8,8 +8,8 @@ from sklearn.metrics import confusion_matrix, f1_score
 
 
 def find_optimal_threshold(
-    y_true,
-    y_proba,
+    y_true: pd.Series | np.ndarray,
+    y_proba: pd.Series | np.ndarray,
     fn_cost: float,
     fp_cost: float,
 ) -> tuple[float, float, pd.DataFrame, float]:
