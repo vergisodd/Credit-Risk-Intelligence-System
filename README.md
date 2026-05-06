@@ -68,6 +68,20 @@ make pipeline
 | `EXT_SOURCE_MAX` | Maximum external source risk score |
 | `EXT_SOURCE_PRODUCT` | Interaction between external source scores 1 and 2 |
 | `CREDIT_TO_INCOME_TERM` | Credit amount relative to income and estimated term burden |
+| **Bureau Features (bureau.csv)** | **Aggregated historical credit bureau signals** |
+| `BUREAU_LOAN_COUNT` | Total number of previous bureau credit records |
+| `BUREAU_ACTIVE_LOAN_COUNT` | Count of currently active bureau loans |
+| `BUREAU_CLOSED_LOAN_COUNT` | Count of closed bureau loans |
+| `BUREAU_AVG_DAYS_CREDIT` | Average age of prior bureau credit records |
+| `BUREAU_AVG_DAYS_CREDIT_ENDDATE` | Average expected end date of bureau credit lines |
+| `BUREAU_MAX_DAYS_OVERDUE` | Maximum days overdue across bureau records |
+| `BUREAU_MEAN_DAYS_OVERDUE` | Average days overdue across bureau records |
+| `BUREAU_SUM_AMT_CREDIT_SUM` | Total credit exposure recorded by bureau |
+| `BUREAU_SUM_AMT_CREDIT_SUM_DEBT` | Total outstanding bureau debt |
+| `BUREAU_SUM_AMT_CREDIT_SUM_OVERDUE` | Total overdue bureau amount |
+| `BUREAU_ACTIVE_DEBT_RATIO` | Outstanding bureau debt relative to total bureau credit |
+| `BUREAU_PROLONGED_LOAN_COUNT` | Count of bureau loans with prolonged repayment terms |
+| `BUREAU_CREDIT_ACTIVE_RATIO` | Share of bureau loans that remain active |
 
 ## Fairness and Governance
 
@@ -151,8 +165,7 @@ This is a serious portfolio project, but it is not a production lending system.
 Current limitations:
 
 - Only `application_train.csv` is used
-- Other Home Credit relational tables are not yet integrated
-- Bureau, previous application, installment, and credit card history data are not yet used
+- `bureau.csv` integration is implemented in `src/train_lightgbm_bureau.py` and adds 13 aggregated credit history features (loan counts, overdue days, debt ratios). Run `make train-lgbm-bureau` after placing `bureau.csv` in `data/raw/`. Remaining relational tables (`previous_application`, `installments_payments`, `credit_card_balance`, `POS_CASH_balance`) are not yet integrated.
 - Precision remains low for the default class
 - SHAP values explain model behavior, not causal credit risk factors
 - Sensitive attributes require governance review before deployment

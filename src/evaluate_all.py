@@ -16,23 +16,34 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
 
 from src.config_loader import ensure_parent_dir, load_config, resolve_path
-from src.model_utils import evaluate_predictions, load_engineered_data, load_model_artifact, make_train_test_split, save_dataframe
+from src.model_utils import (
+    evaluate_predictions,
+    load_engineered_data,
+    load_engineered_data_with_bureau,
+    load_model_artifact,
+    make_train_test_split,
+    save_dataframe,
+)
 from src.threshold_optimizer import find_optimal_threshold
 
 
 MODEL_SPECS = [
-    ("Logistic Regression", "logistic_model", "baseline_metrics"),
-    ("XGBoost", "xgboost_model", "xgboost_metrics"),
-    ("LightGBM", "lightgbm_model", "lightgbm_metrics"),
+    ("Logistic Regression", "logistic_model", "baseline_metrics", "application", False),
+    ("XGBoost", "xgboost_model", "xgboost_metrics", "application", False),
+    ("LightGBM", "lightgbm_model", "lightgbm_metrics", "application", False),
+    ("LightGBM+Bureau", "lightgbm_bureau_model", "lightgbm_bureau_metrics", "bureau", True),
 ]
 
 
-def get_scores(config: dict, X_test: pd.DataFrame) -> dict[str, np.ndarray]:
+def get_scores(config: dict, test_sets: dict[str, pd.DataFrame]) -> dict[str, np.ndarray]:
     """Load model artifacts and score the shared holdout set."""
     scores = {}
-    for model_name, artifact_key, _ in MODEL_SPECS:
+    for model_name, artifact_key, _, test_set_key, optional in MODEL_SPECS:
+        artifact_path = resolve_path(config["artifacts"][artifact_key])
+        if optional and not artifact_path.exists():
+            continue
         model = load_model_artifact(config["artifacts"][artifact_key])
-        scores[model_name] = model.predict_proba(X_test)[:, 1]
+        scores[model_name] = model.predict_proba(test_sets[test_set_key])[:, 1]
     return scores
 
 
@@ -43,7 +54,7 @@ def get_cv_auc(config: dict, model_name: str, report_key: str) -> float:
         return float("nan")
     with report_path.open("r", encoding="utf-8") as file:
         metrics = json.load(file)
-    if model_name == "LightGBM":
+    if model_name in {"LightGBM", "LightGBM+Bureau"}:
         return float(metrics.get("tuned_cv_auc_mean", metrics.get("cv_auc_mean", float("nan"))))
     return float(metrics.get("cv_auc_mean", float("nan")))
 
@@ -69,7 +80,7 @@ def build_comparison_table(
     rows = []
     for model_name, y_proba in scores.items():
         report_key = next(
-            report_key for spec_name, _, report_key in MODEL_SPECS if spec_name == model_name
+            report_key for spec_name, _, report_key, _, _ in MODEL_SPECS if spec_name == model_name
         )
         optimal_threshold, optimal_metrics = find_f1_optimal_threshold(y_test, y_proba)
         default_metrics = evaluate_predictions(y_test, y_proba, default_threshold)
@@ -88,6 +99,19 @@ def build_comparison_table(
             }
         )
     return pd.DataFrame(rows)
+
+
+def bureau_improvement_note(comparison_df: pd.DataFrame) -> str | None:
+    """Describe the holdout AUC lift from bureau features when available."""
+    model_names = set(comparison_df["Model"])
+    if {"LightGBM", "LightGBM+Bureau"} - model_names:
+        return None
+    lightgbm_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM", "AUC-ROC"].iloc[0])
+    bureau_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM+Bureau", "AUC-ROC"].iloc[0])
+    improvement = bureau_auc - lightgbm_auc
+    if improvement <= 0:
+        return None
+    return f"LightGBM+Bureau achieved +{improvement:.4f} AUC improvement from bureau feature integration"
 
 
 def save_combined_roc(y_test, scores: dict[str, np.ndarray], output_path: str) -> None:
@@ -190,7 +214,11 @@ def save_cost_threshold_outputs(y_test, y_proba: np.ndarray, config: dict) -> No
     plt.close(fig)
 
 
-def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) -> None:
+def update_model_comparison_report(
+    comparison_df: pd.DataFrame,
+    config: dict,
+    note: str | None = None,
+) -> None:
     """Write a compact model comparison Markdown report."""
     best_row = comparison_df.sort_values("AUC-ROC", ascending=False).iloc[0]
     output_file = ensure_parent_dir(config["reports"]["model_comparison_md"])
@@ -201,6 +229,7 @@ def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) ->
     markdown_table = "\n".join([f"| {header} |", f"| {separator} |", *[f"| {row} |" for row in rows]])
     low_tier = config["thresholds"]["risk_tiers"]["low"]
     high_tier = config["thresholds"]["risk_tiers"]["medium"]
+    note_block = f"\n{note}\n" if note else ""
     report = f"""# Model Comparison Report
 
 ## Summary
@@ -208,6 +237,7 @@ def update_model_comparison_report(comparison_df: pd.DataFrame, config: dict) ->
 The strongest holdout model is **{best_row["Model"]}** with ROC-AUC {best_row["AUC-ROC"]:.4f} and Average Precision {best_row["Average Precision"]:.4f}.
 
 {markdown_table}
+{note_block}
 
 ## Calibration Interpretation
 
@@ -222,10 +252,21 @@ def main() -> None:
     print("Loading holdout split...")
     X, y = load_engineered_data()
     _, X_test, _, y_test = make_train_test_split(X, y, config)
+    test_sets = {"application": X_test}
+    bureau_artifact_path = resolve_path(config["artifacts"]["lightgbm_bureau_model"])
+    if bureau_artifact_path.exists():
+        X_bureau, y_bureau = load_engineered_data_with_bureau()
+        _, X_test_bureau, _, y_test_bureau = make_train_test_split(X_bureau, y_bureau, config)
+        if not y_test.reset_index(drop=True).equals(y_test_bureau.reset_index(drop=True)):
+            raise ValueError("Bureau and application holdout splits do not align.")
+        test_sets["bureau"] = X_test_bureau
 
     print("Scoring all trained model pipelines...")
-    scores = get_scores(config, X_test)
+    scores = get_scores(config, test_sets)
     comparison_df = build_comparison_table(y_test, scores, config["thresholds"]["default"], config)
+    improvement_note = bureau_improvement_note(comparison_df)
+    if improvement_note:
+        print(improvement_note)
 
     print("Saving comparison outputs...")
     save_dataframe(comparison_df, config["reports"]["model_comparison_full"])
@@ -233,7 +274,7 @@ def main() -> None:
     save_combined_pr(y_test, scores, config["visuals"]["pr_comparison_all_models"])
     save_calibration_plot(y_test, scores, config["visuals"]["calibration_plot"])
     save_cost_threshold_outputs(y_test, scores["LightGBM"], config)
-    update_model_comparison_report(comparison_df, config)
+    update_model_comparison_report(comparison_df, config, improvement_note)
 
     print()
     print(comparison_df.to_string(index=False, float_format=lambda value: f"{value:.4f}"))
