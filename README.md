@@ -14,10 +14,11 @@ This project builds a credit risk workflow that:
 
 - Cleans and prepares applicant data
 - Engineers credit-risk features
-- Trains a baseline machine learning model
+- Trains baseline and advanced machine learning models
 - Evaluates model performance using imbalance-aware metrics
+- Compares Logistic Regression and XGBoost performance
 - Converts predicted probabilities into business risk tiers
-- Provides an interactive Streamlit app for applicant-level risk review
+- Provides an interactive Streamlit app for applicant-level risk review and model comparison
 
 ---
 
@@ -25,26 +26,16 @@ This project builds a credit risk workflow that:
 
 Credit risk models involve two major tradeoffs:
 
-1. **False negatives**  
-   Risky applicants are approved and may later default.
+1. **False negatives**: risky applicants are approved and may later default.
+2. **False positives**: reliable applicants are incorrectly flagged as risky, creating unnecessary manual review or lost lending opportunities.
 
-2. **False positives**  
-   Reliable applicants are incorrectly flagged as risky, creating unnecessary manual review or lost lending opportunities.
-
-Because the dataset is highly imbalanced, accuracy alone is misleading. This project focuses on:
-
-- ROC-AUC
-- Recall
-- Precision
-- F1-score
-- Confusion matrix
-- Threshold analysis
+Because the dataset is highly imbalanced, accuracy alone is misleading. This project focuses on ROC-AUC, recall, precision, F1-score, confusion matrix, and threshold analysis.
 
 ---
 
 ## Dataset
 
-This project uses the **Home Credit Default Risk** dataset.
+This project uses the Home Credit Default Risk dataset.
 
 Current version uses:
 
@@ -55,8 +46,8 @@ application_train.csv
 Target variable:
 
 ```text
-TARGET = 1 → applicant had payment difficulty
-TARGET = 0 → applicant did not have payment difficulty
+TARGET = 1 -> applicant had payment difficulty
+TARGET = 0 -> applicant did not have payment difficulty
 ```
 
 ### Dataset Summary
@@ -107,7 +98,11 @@ Preprocessing Pipeline
    ↓
 Logistic Regression Baseline
    ↓
+XGBoost Model
+   ↓
 Model Evaluation
+   ↓
+Model Comparison
    ↓
 Threshold Analysis
    ↓
@@ -137,11 +132,22 @@ The project adds domain-informed credit risk features:
 
 ---
 
+## Models
+
+This project currently compares two models:
+
+| Model | Purpose |
+|---|---|
+| Logistic Regression | Baseline linear classifier with class imbalance handling |
+| XGBoost | Gradient boosting model for stronger predictive performance |
+
+---
+
 ## Baseline Model Results
 
-Model used:
+Baseline model used:
 
-```python
+```text
 LogisticRegression(class_weight="balanced")
 ```
 
@@ -151,64 +157,32 @@ Performance on the test set:
 |---|---:|
 | Accuracy | 0.6900 |
 | ROC-AUC | 0.7470 |
-| Precision — Default Class | 0.1612 |
-| Recall — Default Class | 0.6755 |
-| F1 — Default Class | 0.2602 |
+| Precision - Default Class | 0.1612 |
+| Recall - Default Class | 0.6755 |
+| F1 - Default Class | 0.2602 |
 
 ---
 
-## Confusion Matrix
+## XGBoost Model Results
 
-At threshold `0.50`:
+XGBoost model used:
 
-| Actual / Predicted | Predicted Non-Default | Predicted Default |
-|---|---:|---:|
-| Actual Non-Default | 39,080 | 17,458 |
-| Actual Default | 1,611 | 3,354 |
+```text
+XGBClassifier with scale_pos_weight for class imbalance
+```
 
----
+Performance on the test set:
 
-## Model Interpretation
-
-The baseline model achieves a **ROC-AUC of 0.7470**, showing useful ranking ability.
-
-However, precision for the default class is low. Many applicants flagged as risky are actually non-default applicants.
-
-The model is better suited for:
-
-- Risk screening
-- Manual review prioritization
-- Baseline benchmarking
-- Credit risk analysis
-
-It should **not** be used for automatic loan rejection.
+| Metric | Value |
+|---|---:|
+| Accuracy | 0.7052 |
+| ROC-AUC | 0.7613 |
+| Precision - Default Class | 0.1689 |
+| Recall - Default Class | 0.6763 |
+| F1 - Default Class | 0.2703 |
 
 ---
 
-## Threshold Analysis
-
-Different thresholds create different business tradeoffs.
-
-| Threshold | Recall | Precision | Business Meaning |
-|---:|---:|---:|---|
-| 0.20 | 0.9720 | 0.0908 | Very aggressive screening |
-| 0.50 | 0.6755 | 0.1612 | Broad baseline screening |
-| 0.70 | 0.3430 | 0.2554 | Stricter manual review queue |
-| 0.80 | 0.1716 | 0.3403 | Conservative high-risk flag |
-
-Lower thresholds catch more risky applicants but create more false positives. Higher thresholds reduce false positives but miss more defaults.
-
----
-
-## Risk Tier Logic
-
-| Risk Tier | Default Probability | Suggested Action |
-|---|---|---|
-| Low Risk | `< 0.30` | Standard processing |
-| Medium Risk | `0.30 – 0.59` | Additional review if loan amount is high |
-| High Risk | `>= 0.60` | Manual risk review recommended |
-
----
 ## Model Comparison
 
 | Metric | Logistic Regression | XGBoost | Better Model |
@@ -225,6 +199,81 @@ The improvement is useful but modest. Precision for the default class is still l
 
 ---
 
+## Confusion Matrix Comparison
+
+### Logistic Regression — Threshold 0.50
+
+| Actual / Predicted | Predicted Non-Default | Predicted Default |
+|---|---:|---:|
+| Actual Non-Default | 39,080 | 17,458 |
+| Actual Default | 1,611 | 3,354 |
+
+### XGBoost — Threshold 0.50
+
+| Actual / Predicted | Predicted Non-Default | Predicted Default |
+|---|---:|---:|
+| Actual Non-Default | 40,014 | 16,524 |
+| Actual Default | 1,607 | 3,358 |
+
+At the 0.50 threshold, XGBoost reduces false positives from 17,458 to 16,524 while keeping recall almost unchanged.
+
+---
+
+## Model Interpretation
+
+The Logistic Regression baseline achieves a ROC-AUC of 0.7470, showing useful ranking ability.
+
+The XGBoost model improves ROC-AUC to 0.7613, meaning it ranks applicants slightly better than the baseline model.
+
+However, precision for the default class remains low. Many applicants flagged as risky are actually non-default applicants.
+
+The models are better suited for:
+
+- Risk screening
+- Manual review prioritization
+- Baseline benchmarking
+- Credit risk analysis
+
+They should not be used for automatic loan rejection.
+
+---
+
+## Threshold Analysis
+
+Different thresholds create different business tradeoffs.
+
+### Logistic Regression Threshold Summary
+
+| Threshold | Recall | Precision | Business Meaning |
+|---:|---:|---:|---|
+| 0.20 | 0.9720 | 0.0908 | Very aggressive screening |
+| 0.50 | 0.6755 | 0.1612 | Broad baseline screening |
+| 0.70 | 0.3430 | 0.2554 | Stricter manual review queue |
+| 0.80 | 0.1716 | 0.3403 | Conservative high-risk flag |
+
+### XGBoost Threshold Summary
+
+| Threshold | Recall | Precision | Business Meaning |
+|---:|---:|---:|---|
+| 0.20 | 0.9696 | 0.0931 | Very aggressive screening |
+| 0.50 | 0.6763 | 0.1689 | Broad baseline screening |
+| 0.70 | 0.3553 | 0.2709 | Stricter manual review queue |
+| 0.80 | 0.1627 | 0.3732 | Conservative high-risk flag |
+
+Lower thresholds catch more risky applicants but create more false positives. Higher thresholds reduce false positives but miss more defaults.
+
+---
+
+## Risk Tier Logic
+
+| Risk Tier | Default Probability | Suggested Action |
+|---|---:|---|
+| Low Risk | `< 0.30` | Standard processing |
+| Medium Risk | `0.30 - 0.59` | Additional review if loan amount is high |
+| High Risk | `>= 0.60` | Manual risk review recommended |
+
+---
+
 ## Streamlit App
 
 The project includes an interactive Streamlit app that allows users to:
@@ -234,6 +283,7 @@ The project includes an interactive Streamlit app that allows users to:
 - Generate default-risk predictions
 - View risk tiers
 - Review actual historical outcomes
+- Compare Logistic Regression and XGBoost performance
 - Inspect model performance
 - Explore threshold analysis
 
@@ -265,17 +315,23 @@ Credit-Risk-Intelligence-System/
 │   ├── business_recommendations.md
 │   ├── logistic_regression_evaluation.json
 │   ├── model_card.md
+│   ├── model_comparison.md
 │   ├── sample_predictions.csv
-│   └── threshold_analysis.csv
+│   ├── threshold_analysis.csv
+│   ├── xgboost_model_metrics.json
+│   └── xgboost_threshold_analysis.csv
 ├── src/
 │   ├── data_cleaning.py
 │   ├── evaluate_model.py
 │   ├── feature_engineering.py
 │   ├── predict.py
-│   └── train_model.py
+│   ├── train_model.py
+│   └── train_xgboost.py
 ├── visuals/
 │   ├── confusion_matrix_threshold_0_50.png
-│   └── roc_curve_logistic_regression.png
+│   ├── confusion_matrix_xgboost_threshold_0_50.png
+│   ├── roc_curve_logistic_regression.png
+│   └── roc_curve_xgboost.png
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -328,25 +384,31 @@ inside:
 data/raw/
 ```
 
-### 5. Train the model
+### 5. Train the Logistic Regression baseline
 
 ```bash
 python src/train_model.py
 ```
 
-### 6. Evaluate the model
+### 6. Train the XGBoost model
+
+```bash
+python src/train_xgboost.py
+```
+
+### 7. Evaluate the Logistic Regression model
 
 ```bash
 python src/evaluate_model.py
 ```
 
-### 7. Generate sample predictions
+### 8. Generate sample predictions
 
 ```bash
 python src/predict.py
 ```
 
-### 8. Run the Streamlit app
+### 9. Run the Streamlit app
 
 ```bash
 streamlit run app/streamlit_app.py
@@ -361,25 +423,30 @@ streamlit run app/streamlit_app.py
 | `src/data_cleaning.py` | Loads data, handles missing columns, prepares features and target |
 | `src/feature_engineering.py` | Adds domain-specific credit risk features |
 | `src/train_model.py` | Trains the Logistic Regression baseline model |
-| `src/evaluate_model.py` | Evaluates model and saves threshold analysis |
+| `src/train_xgboost.py` | Trains the XGBoost credit risk model |
+| `src/evaluate_model.py` | Evaluates Logistic Regression and saves threshold analysis |
 | `src/predict.py` | Generates applicant-level risk predictions |
-| `app/streamlit_app.py` | Interactive dashboard for risk review |
+| `app/streamlit_app.py` | Interactive dashboard for risk review and model comparison |
 | `reports/model_card.md` | Technical model documentation |
+| `reports/model_comparison.md` | Compares Logistic Regression and XGBoost performance |
 | `reports/business_recommendations.md` | Business interpretation and recommendations |
 
 ---
 
 ## Current Limitations
 
-This is a baseline version. Main limitations:
+This is a strong baseline project, but it is not a production lending system.
+
+Main limitations:
 
 - Uses only `application_train.csv`
 - Does not yet use bureau, previous application, installment, or credit card history tables
-- Logistic Regression has low precision for the default class
-- No XGBoost or Random Forest comparison yet
+- Logistic Regression and XGBoost still have low precision for the default class
+- XGBoost has been added, but Random Forest has not been added yet
 - No SHAP explainability yet
 - No full fairness or bias analysis yet
 - No deployed public app yet
+- No model monitoring or drift simulation yet
 
 ---
 
@@ -387,18 +454,21 @@ This is a baseline version. Main limitations:
 
 Planned next steps:
 
-- Train Random Forest and XGBoost models
+- Add Random Forest as a third comparison model
 - Add SHAP explainability
 - Tune thresholds using business cost assumptions
 - Add feature importance analysis
 - Integrate additional Home Credit relational tables
 - Deploy Streamlit app publicly
 - Add model monitoring and drift simulation
+- Add screenshots of the Streamlit app to the README
 
 ---
 
 ## Business Takeaway
 
-The model is **not strong enough for automatic lending decisions**, but it is useful as a credit risk screening tool.
+The models are not strong enough for automatic lending decisions, but they are useful as credit risk screening tools.
 
 The strongest current use case is helping credit teams prioritize manual review by ranking applicants based on predicted payment difficulty risk.
+
+XGBoost is currently the best-performing model in the project, but its improvement over Logistic Regression is modest. The project should be treated as a realistic credit risk analysis system, not a production-grade automated lending engine.
