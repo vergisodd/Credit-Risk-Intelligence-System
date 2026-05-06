@@ -300,6 +300,20 @@ Feature importance is useful for model transparency, but it is not causal eviden
 
 ![SHAP Feature Importance](visuals/shap_feature_importance_xgboost.png)
 
+### Top Model Drivers
+
+The global SHAP analysis identified the following strongest risk drivers in the XGBoost model:
+
+| Rank | Feature | Interpretation |
+|---:|---|---|
+| 1 | `EXT_SOURCE_MEAN` | Aggregated external credit-risk signal |
+| 2 | `CODE_GENDER` | Demographic feature requiring careful fairness review |
+| 3 | `CREDIT_TERM_RATIO` | Loan annuity relative to total credit amount |
+| 4 | `GOODS_CREDIT_RATIO` | Goods price relative to credit amount |
+| 5 | `NAME_EDUCATION_TYPE` | Applicant education category |
+
+These features help explain broad model behavior, but they are not causal proof. Sensitive or demographic-related features require careful governance before any real-world lending use.
+
 ---
 
 ## Streamlit App
