@@ -51,6 +51,21 @@ pip install -r requirements.txt
 make pipeline
 ```
 
+## Live Demo
+
+> **[Open Live Dashboard →]([DEPLOY URL])**
+> The dashboard displays pre-generated model comparison charts, fairness analysis,
+> and explainability reports without requiring local model training.
+> Applicant prediction and interactive threshold tools require local setup with
+> trained model artifacts.
+
+## Deploy Your Own Instance
+
+1. Fork this repository
+2. Sign in at [share.streamlit.io](https://share.streamlit.io)
+3. Click "New app" → select your fork → set Main file path to `app/streamlit_app.py`
+4. Deploy — the app runs on the pre-generated visuals and reports in the repository
+
 ## Feature Engineering
 
 | Feature | Meaning |
