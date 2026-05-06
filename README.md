@@ -1,44 +1,56 @@
 # Credit Risk Intelligence System
 
-End-to-end machine learning pipeline for predicting loan default risk using the Home Credit Default Risk dataset.
+End-to-end machine learning pipeline for predicting loan applicant payment difficulty using the Home Credit Default Risk dataset.
 
-This project predicts whether a loan applicant is likely to experience payment difficulty and translates model outputs into practical business risk tiers for credit review.
+This project cleans applicant data, engineers credit-risk features, trains Logistic Regression and XGBoost models, compares performance, analyzes classification thresholds, assigns business risk tiers, adds model explainability, and provides a Streamlit dashboard for applicant-level credit risk review.
 
 ---
 
-## Project Objective
+## Project Overview
 
-Lenders need to identify applicants who may be at higher risk of default while avoiding unnecessary rejection of reliable customers.
+The Credit Risk Intelligence System is a data science portfolio project focused on credit risk screening and manual review prioritization.
 
-This project builds a credit risk workflow that:
+Using the Home Credit Default Risk dataset, the project predicts whether a loan applicant is likely to experience payment difficulty. Model probabilities are translated into practical risk tiers so that applicants can be reviewed in a business-friendly way.
 
-- Cleans and prepares applicant data
-- Engineers credit-risk features
-- Trains baseline and advanced machine learning models
-- Evaluates model performance using imbalance-aware metrics
-- Compares Logistic Regression and XGBoost performance
-- Explains XGBoost model behavior using SHAP and built-in feature importance
-- Converts predicted probabilities into business risk tiers
-- Provides an interactive Streamlit app for applicant-level risk review and model comparison
+The project includes:
+
+- Reproducible Python machine learning scripts
+- Data cleaning and missing-value handling
+- Domain-informed feature engineering
+- Logistic Regression baseline model
+- XGBoost comparison model
+- Model evaluation for an imbalanced classification problem
+- Threshold analysis for business tradeoff interpretation
+- Risk tier assignment logic
+- XGBoost feature importance and SHAP explainability workflow
+- Applicant-level prediction script
+- Streamlit dashboard for model review and risk exploration
+- Model card, model comparison report, and business recommendations
 
 ---
 
 ## Business Problem
 
-Credit risk models involve two major tradeoffs:
+Credit risk modelling is not only a prediction problem. It is a decision-support problem with real business tradeoffs.
 
-1. **False negatives**: risky applicants are approved and may later default.
-2. **False positives**: reliable applicants are incorrectly flagged as risky, creating unnecessary manual review or lost lending opportunities.
+Lenders need to identify applicants who may be at higher risk of payment difficulty while avoiding unnecessary friction for reliable applicants.
 
-Because the dataset is highly imbalanced, accuracy alone is misleading. This project focuses on ROC-AUC, recall, precision, F1-score, confusion matrix, and threshold analysis.
+Two errors matter:
+
+1. **False negatives**: risky applicants are predicted as lower risk and may later experience payment difficulty.
+2. **False positives**: reliable applicants are incorrectly flagged as risky, creating unnecessary manual review or potential lost lending opportunities.
+
+Because payment difficulty cases are relatively rare, accuracy alone is not enough. A model can appear accurate by mostly predicting the majority class. This project evaluates models using ROC-AUC, precision, recall, F1-score, confusion matrices, and threshold analysis.
+
+This system is framed as a risk-screening and manual-review prioritization tool, not an automatic loan rejection system.
 
 ---
 
 ## Dataset
 
-This project uses the Home Credit Default Risk dataset.
+This project uses the [Home Credit Default Risk dataset](https://www.kaggle.com/competitions/home-credit-default-risk/data) from Kaggle.
 
-Current version uses:
+The current version uses only:
 
 ```text
 application_train.csv
@@ -51,6 +63,8 @@ TARGET = 1 -> applicant had payment difficulty
 TARGET = 0 -> applicant did not have payment difficulty
 ```
 
+The raw dataset is not committed to this repository because of file size and licensing considerations.
+
 ### Dataset Summary
 
 | Item | Value |
@@ -60,28 +74,10 @@ TARGET = 0 -> applicant did not have payment difficulty
 | Final Model Features | 82 |
 | Dropped Columns | 50 |
 | Engineered Features | 11 |
-| Default Rate | 8.07% |
+| Default / Payment Difficulty Rate | 8.07% |
 | Non-Default Rate | 91.93% |
 
-The raw dataset is not included in this repository because of file size and licensing considerations.
-
----
-
-## Tools & Technologies
-
-- Python
-- pandas
-- NumPy
-- scikit-learn
-- Logistic Regression
-- XGBoost
-- SHAP
-- Streamlit
-- matplotlib
-- seaborn
-- joblib
-- Git
-- GitHub
+This is an imbalanced binary classification problem.
 
 ---
 
@@ -89,73 +85,71 @@ The raw dataset is not included in this repository because of file size and lice
 
 ```text
 Raw Data
-   ↓
-Data Cleaning
-   ↓
-Feature Engineering
-   ↓
-Train/Test Split
-   ↓
-Preprocessing Pipeline
-   ↓
-Logistic Regression Baseline
-   ↓
-XGBoost Model
-   ↓
-Model Evaluation
-   ↓
-Model Comparison
-   ↓
-Explainability
-   ↓
-Threshold Analysis
-   ↓
-Risk Tier Assignment
-   ↓
-Streamlit App
+   -> Data Cleaning
+   -> Feature Engineering
+   -> Train/Test Split
+   -> Preprocessing
+   -> Logistic Regression
+   -> XGBoost
+   -> Evaluation
+   -> Threshold Analysis
+   -> Explainability
+   -> Risk Tiers
+   -> Streamlit App
 ```
+
+---
+
+## Tools and Technologies
+
+- Python
+- pandas
+- NumPy
+- scikit-learn
+- XGBoost
+- SHAP
+- Streamlit
+- matplotlib
+- seaborn
+- joblib
+- Git/GitHub
 
 ---
 
 ## Feature Engineering
 
-The project adds domain-informed credit risk features:
+The project adds domain-informed credit risk features designed to capture applicant affordability, credit burden, employment history, and external risk signals.
 
 | Feature | Meaning |
 |---|---|
 | `CREDIT_INCOME_RATIO` | Credit amount relative to applicant income |
 | `ANNUITY_INCOME_RATIO` | Loan annuity burden relative to income |
 | `GOODS_CREDIT_RATIO` | Goods price relative to credit amount |
-| `CREDIT_TERM_RATIO` | Annuity relative to credit amount |
+| `CREDIT_TERM_RATIO` | Annuity amount relative to credit amount |
 | `INCOME_PER_FAMILY_MEMBER` | Income adjusted by family size |
-| `AGE_YEARS` | Applicant age |
-| `EMPLOYMENT_YEARS` | Employment length |
-| `EXT_SOURCE_MEAN` | Average external credit score |
-| `EXT_SOURCE_MIN` | Minimum external credit score |
-| `EXT_SOURCE_MAX` | Maximum external credit score |
+| `AGE_YEARS` | Applicant age converted from days |
+| `DAYS_EMPLOYED_CLEAN` | Employment days with anomalous values cleaned |
+| `EMPLOYMENT_YEARS` | Employment length converted from days |
+| `EXT_SOURCE_MEAN` | Average external source risk score |
+| `EXT_SOURCE_MIN` | Minimum external source risk score |
+| `EXT_SOURCE_MAX` | Maximum external source risk score |
 
 ---
 
-## Models
+## Models Trained
 
-This project currently compares two models:
+| Model | Role | Imbalance Handling |
+|---|---|---|
+| Logistic Regression | Baseline linear classifier | `class_weight="balanced"` |
+| XGBoost | Gradient boosting comparison model | `scale_pos_weight` |
 
-| Model | Purpose |
-|---|---|
-| Logistic Regression | Baseline linear classifier with class imbalance handling |
-| XGBoost | Gradient boosting model for stronger predictive performance |
+The Logistic Regression model provides a transparent baseline. XGBoost is used as a stronger nonlinear model to test whether gradient boosting improves risk ranking.
 
 ---
 
-## Baseline Model Results
+## Logistic Regression Results
 
-Baseline model used:
-
-```text
-LogisticRegression(class_weight="balanced")
-```
-
-Performance on the test set:
+Performance on the test set at threshold `0.50`:
 
 | Metric | Value |
 |---|---:|
@@ -165,17 +159,13 @@ Performance on the test set:
 | Recall - Default Class | 0.6755 |
 | F1 - Default Class | 0.2602 |
 
+The Logistic Regression baseline achieves useful ranking ability, but precision for the default class is low.
+
 ---
 
-## XGBoost Model Results
+## XGBoost Results
 
-XGBoost model used:
-
-```text
-XGBClassifier with scale_pos_weight for class imbalance
-```
-
-Performance on the test set:
+Performance on the test set at threshold `0.50`:
 
 | Metric | Value |
 |---|---:|
@@ -184,6 +174,8 @@ Performance on the test set:
 | Precision - Default Class | 0.1689 |
 | Recall - Default Class | 0.6763 |
 | F1 - Default Class | 0.2703 |
+
+XGBoost improves performance across the main metrics, but the improvement over Logistic Regression is modest.
 
 ---
 
@@ -197,87 +189,39 @@ Performance on the test set:
 | Recall - Default Class | 0.6755 | 0.6763 | XGBoost |
 | F1 - Default Class | 0.2602 | 0.2703 | XGBoost |
 
-XGBoost is the stronger model in this version. It improves ROC-AUC, accuracy, precision, recall, and F1-score compared with the Logistic Regression baseline.
+XGBoost is currently the strongest model in the project. It improves ROC-AUC from `0.7470` to `0.7613` and reduces false positives by `934` applicants at threshold `0.50`, while keeping recall almost unchanged.
 
-The improvement is useful but modest. Precision for the default class is still low, so the model remains best suited for screening and manual review prioritization, not automatic loan rejection.
+The result is meaningful, but not dramatic. Precision remains low, so the model is better suited for risk screening and manual review prioritization than automatic decision-making.
 
 ---
 
 ## Confusion Matrix Comparison
 
-### Logistic Regression — Threshold 0.50
+### Logistic Regression - Threshold 0.50
 
 | Actual / Predicted | Predicted Non-Default | Predicted Default |
 |---|---:|---:|
 | Actual Non-Default | 39,080 | 17,458 |
 | Actual Default | 1,611 | 3,354 |
 
-### XGBoost — Threshold 0.50
+### XGBoost - Threshold 0.50
 
 | Actual / Predicted | Predicted Non-Default | Predicted Default |
 |---|---:|---:|
 | Actual Non-Default | 40,014 | 16,524 |
 | Actual Default | 1,607 | 3,358 |
 
-At the 0.50 threshold, XGBoost reduces false positives from 17,458 to 16,524 while keeping recall almost unchanged.
-
----
-
-## Model Interpretation
-
-The Logistic Regression baseline achieves a ROC-AUC of 0.7470, showing useful ranking ability.
-
-The XGBoost model improves ROC-AUC to 0.7613, meaning it ranks applicants slightly better than the baseline model.
-
-However, precision for the default class remains low. Many applicants flagged as risky are actually non-default applicants.
-
-The models are better suited for:
-
-- Risk screening
-- Manual review prioritization
-- Baseline benchmarking
-- Credit risk analysis
-
-They should not be used for automatic loan rejection.
-
----
-
-## Explainability
-
-The project includes a reproducible XGBoost explainability workflow:
-
-```bash
-python src/explain_model.py
-```
-
-The script:
-
-- Reuses the existing cleaning and feature engineering functions
-- Loads the trained XGBoost sklearn Pipeline
-- Applies the fitted preprocessing pipeline from the trained model
-- Samples holdout rows so SHAP remains practical on a local machine
-- Groups one-hot encoded categorical features back to their original feature names
-- Saves model explanation outputs to `reports/` and `visuals/`
-
-Generated outputs:
-
-| Output | Purpose |
-|---|---|
-| [`reports/shap_feature_importance.csv`](reports/shap_feature_importance.csv) | Global SHAP feature importance ranked by mean absolute SHAP value |
-| [`reports/xgboost_feature_importance.csv`](reports/xgboost_feature_importance.csv) | Built-in XGBoost feature importance |
-| [`reports/explainability_report.md`](reports/explainability_report.md) | Plain-English explainability summary and limitations |
-| [`visuals/shap_feature_importance_xgboost.png`](visuals/shap_feature_importance_xgboost.png) | SHAP global feature importance chart |
-| [`visuals/xgboost_feature_importance.png`](visuals/xgboost_feature_importance.png) | Built-in XGBoost feature importance chart |
-
-The top risk drivers are generated from the locally trained model and written to `reports/explainability_report.md`. Typical feature groups to inspect include external source scores, income and credit burden ratios, age and employment variables, and loan amount variables. Exact rankings should be regenerated after retraining instead of hard-coded.
-
-Explainability is used here for model transparency and business interpretation. It does not prove causality, and it should not be used as a standalone reason to approve or reject an applicant.
+At the default `0.50` threshold, XGBoost reduces false positives while maintaining nearly the same ability to catch payment difficulty cases.
 
 ---
 
 ## Threshold Analysis
 
-Different thresholds create different business tradeoffs.
+Classification thresholds matter because they control the business tradeoff between catching more risky applicants and reducing unnecessary manual review.
+
+A lower threshold flags more applicants as risky. This increases recall but creates more false positives.
+
+A higher threshold is more selective. This improves precision but misses more applicants who later experience payment difficulty.
 
 ### Logistic Regression Threshold Summary
 
@@ -297,11 +241,13 @@ Different thresholds create different business tradeoffs.
 | 0.70 | 0.3553 | 0.2709 | Stricter manual review queue |
 | 0.80 | 0.1627 | 0.3732 | Conservative high-risk flag |
 
-Lower thresholds catch more risky applicants but create more false positives. Higher thresholds reduce false positives but miss more defaults.
+Threshold analysis makes the project more realistic because credit risk models are rarely judged by one default cutoff alone.
 
 ---
 
 ## Risk Tier Logic
+
+Predicted probabilities are translated into business risk tiers for easier interpretation.
 
 | Risk Tier | Default Probability | Suggested Action |
 |---|---:|---|
@@ -309,27 +255,87 @@ Lower thresholds catch more risky applicants but create more false positives. Hi
 | Medium Risk | `0.30 - 0.59` | Additional review if loan amount is high |
 | High Risk | `>= 0.60` | Manual risk review recommended |
 
+These tiers are designed for review prioritization, not automatic approval or rejection.
+
+---
+
+## Explainability
+
+The project includes an XGBoost explainability workflow that generates global feature importance outputs from the trained model.
+
+The explainability script:
+
+- Loads the trained XGBoost sklearn Pipeline
+- Reuses the existing data cleaning and feature engineering functions
+- Applies the fitted preprocessing pipeline from the trained model
+- Samples holdout rows so SHAP remains practical on a local machine
+- Groups one-hot encoded categorical features back to their original feature names
+- Saves explanation outputs to `reports/` and `visuals/`
+
+Run locally after training XGBoost:
+
+```bash
+python src/explain_model.py
+```
+
+Optional faster test run:
+
+```bash
+python src/explain_model.py --sample-size 500 --top-n 20
+```
+
+Generated outputs include:
+
+| Output | Purpose |
+|---|---|
+| `reports/shap_feature_importance.csv` | Global SHAP feature importance ranked by mean absolute SHAP value |
+| `reports/xgboost_feature_importance.csv` | Built-in XGBoost feature importance |
+| `reports/explainability_report.md` | Plain-English explainability summary and limitations |
+| `visuals/shap_feature_importance_xgboost.png` | SHAP global feature importance chart |
+| `visuals/xgboost_feature_importance.png` | Built-in XGBoost feature importance chart |
+
+Feature importance is useful for model transparency, but it is not causal evidence and should not be used as the sole basis for lending decisions.
+
 ---
 
 ## Streamlit App
 
-The project includes an interactive Streamlit app that allows users to:
+The project includes an interactive Streamlit dashboard for exploring model outputs and credit risk decisions.
 
-- View project summary
-- Select applicant IDs
-- Generate default-risk predictions
-- View risk tiers
-- Review actual historical outcomes
-- Compare Logistic Regression and XGBoost performance
-- Inspect model performance
-- Explore threshold analysis
-- Review XGBoost explainability outputs
+The dashboard supports:
+
+- Project overview
+- Applicant-level risk prediction
+- Model selection
+- Logistic Regression vs XGBoost comparison
+- ROC curve viewing
+- Confusion matrix viewing
+- Threshold analysis
+- Risk tier interpretation
+- Historical outcome review for selected applicants
+- Explainability output review when generated locally
 
 Run locally:
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
+
+---
+
+## Visual Examples
+
+### ROC Curves
+
+![Logistic Regression ROC Curve](visuals/roc_curve_logistic_regression.png)
+
+![XGBoost ROC Curve](visuals/roc_curve_xgboost.png)
+
+### Confusion Matrices
+
+![Logistic Regression Confusion Matrix](visuals/confusion_matrix_threshold_0_50.png)
+
+![XGBoost Confusion Matrix](visuals/confusion_matrix_xgboost_threshold_0_50.png)
 
 ---
 
@@ -353,14 +359,11 @@ Credit-Risk-Intelligence-System/
 ├── reports/
 │   ├── baseline_model_metrics.json
 │   ├── business_recommendations.md
-│   ├── explainability_report.md
 │   ├── logistic_regression_evaluation.json
 │   ├── model_card.md
 │   ├── model_comparison.md
 │   ├── sample_predictions.csv
-│   ├── shap_feature_importance.csv
 │   ├── threshold_analysis.csv
-│   ├── xgboost_feature_importance.csv
 │   ├── xgboost_model_metrics.json
 │   └── xgboost_threshold_analysis.csv
 ├── src/
@@ -375,17 +378,17 @@ Credit-Risk-Intelligence-System/
 │   ├── confusion_matrix_threshold_0_50.png
 │   ├── confusion_matrix_xgboost_threshold_0_50.png
 │   ├── roc_curve_logistic_regression.png
-│   ├── roc_curve_xgboost.png
-│   ├── shap_feature_importance_xgboost.png
-│   └── xgboost_feature_importance.png
+│   └── roc_curve_xgboost.png
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ```
 
+The repository intentionally excludes raw data files and trained model artifacts.
+
 ---
 
-## How to Run This Project
+## How to Run Locally
 
 ### 1. Clone the repository
 
@@ -416,9 +419,15 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Add dataset
+### 4. Download the dataset
 
-Download the Home Credit Default Risk dataset and place:
+Download the Home Credit Default Risk dataset manually from Kaggle:
+
+```text
+https://www.kaggle.com/competitions/home-credit-default-risk/data
+```
+
+Place the following file:
 
 ```text
 application_train.csv
@@ -428,6 +437,12 @@ inside:
 
 ```text
 data/raw/
+```
+
+Expected local path:
+
+```text
+data/raw/application_train.csv
 ```
 
 ### 5. Train the Logistic Regression baseline
@@ -448,13 +463,7 @@ python src/train_xgboost.py
 python src/explain_model.py
 ```
 
-Optional faster test run:
-
-```bash
-python src/explain_model.py --sample-size 500 --top-n 20
-```
-
-### 8. Evaluate the Logistic Regression model
+### 8. Evaluate Logistic Regression
 
 ```bash
 python src/evaluate_model.py
@@ -478,58 +487,61 @@ streamlit run app/streamlit_app.py
 
 | File | Purpose |
 |---|---|
-| `src/data_cleaning.py` | Loads data, handles missing columns, prepares features and target |
-| `src/feature_engineering.py` | Adds domain-specific credit risk features |
+| `src/data_cleaning.py` | Loads raw data, handles missing values, drops high-missing columns, and prepares features and target |
+| `src/feature_engineering.py` | Creates domain-informed credit risk features |
 | `src/train_model.py` | Trains the Logistic Regression baseline model |
-| `src/train_xgboost.py` | Trains the XGBoost credit risk model |
-| `src/evaluate_model.py` | Evaluates Logistic Regression and saves threshold analysis |
+| `src/train_xgboost.py` | Trains the XGBoost model and saves XGBoost metrics/visuals |
+| `src/evaluate_model.py` | Evaluates the Logistic Regression model and saves threshold analysis |
 | `src/explain_model.py` | Generates SHAP and XGBoost feature importance outputs |
-| `src/predict.py` | Generates applicant-level risk predictions |
-| `app/streamlit_app.py` | Interactive dashboard for risk review and model comparison |
-| `reports/model_card.md` | Technical model documentation |
-| `reports/model_comparison.md` | Compares Logistic Regression and XGBoost performance |
-| `reports/explainability_report.md` | Summarizes global XGBoost feature importance and limitations |
-| `reports/business_recommendations.md` | Business interpretation and recommendations |
+| `src/predict.py` | Generates applicant-level default probabilities and risk tiers |
+| `app/streamlit_app.py` | Interactive Streamlit dashboard for risk prediction, model comparison, threshold analysis, and explainability review |
+| `reports/model_card.md` | Model documentation, intended use, and limitations |
+| `reports/model_comparison.md` | Comparison of Logistic Regression and XGBoost performance |
+| `reports/business_recommendations.md` | Business interpretation and recommended use cases |
 
 ---
 
 ## Current Limitations
 
-This is a strong baseline project, but it is not a production lending system.
+This is a serious portfolio project, but it is not a production lending system.
 
-Main limitations:
+Current limitations:
 
-- Uses only `application_train.csv`
-- Does not yet use bureau, previous application, installment, or credit card history tables
-- Logistic Regression and XGBoost still have low precision for the default class
-- XGBoost has been added, but Random Forest has not been added yet
-- Explainability is global, not applicant-level local explanation in the app
+- Only `application_train.csv` is used
+- Other Home Credit relational tables are not yet integrated
+- Bureau, previous application, installment, and credit card history data are not yet used
+- Precision remains low for the default class
+- Explainability is currently global rather than applicant-level inside the app
 - SHAP uses a sampled holdout set for practical runtime
 - No full fairness or bias analysis yet
 - No deployed public app yet
-- No model monitoring or drift simulation yet
+- No drift monitoring yet
+- Not suitable for automatic lending decisions
+
+These limitations are important because real-world credit risk systems require stronger validation, monitoring, governance, fairness review, and human oversight.
 
 ---
 
 ## Next Improvements
 
-Planned next steps:
+Planned improvements:
 
-- Add Random Forest as a third comparison model
-- Tune thresholds using business cost assumptions
 - Add applicant-level SHAP explanations in the Streamlit app
+- Add Random Forest comparison model
+- Add cost-based threshold optimization
 - Integrate additional Home Credit relational tables
-- Add fairness and subgroup performance analysis with careful limitations
-- Deploy Streamlit app publicly
+- Add fairness and bias analysis with careful interpretation
+- Deploy the Streamlit app publicly
+- Add screenshots of the Streamlit dashboard
 - Add model monitoring and drift simulation
-- Add screenshots of the Streamlit app to the README
+- Add tests for core data cleaning and feature engineering functions
 
 ---
 
 ## Business Takeaway
 
-The models are not strong enough for automatic lending decisions, but they are useful as credit risk screening tools.
+The models are not strong enough for automatic lending decisions, but they are useful as risk-screening tools that help prioritize manual review.
 
-The strongest current use case is helping credit teams prioritize manual review by ranking applicants based on predicted payment difficulty risk.
+XGBoost is currently the strongest model, but the improvement over Logistic Regression is modest. The project demonstrates realistic credit risk modelling, threshold tradeoffs, business interpretation, model explainability, and end-to-end machine learning workflow design.
 
-XGBoost is currently the best-performing model in the project, but its improvement over Logistic Regression is modest. The project should be treated as a realistic credit risk analysis system, not a production-grade automated lending engine.
+This project is best understood as a decision-support system for identifying applicants who may require closer review, not as an automated credit approval or rejection engine.
