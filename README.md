@@ -82,6 +82,7 @@ The raw dataset is not included in this repository because of file size and lice
 - NumPy
 - scikit-learn
 - Logistic Regression
+- XGBoost
 - Streamlit
 - matplotlib
 - seaborn
@@ -206,6 +207,21 @@ Lower thresholds catch more risky applicants but create more false positives. Hi
 | Low Risk | `< 0.30` | Standard processing |
 | Medium Risk | `0.30 – 0.59` | Additional review if loan amount is high |
 | High Risk | `>= 0.60` | Manual risk review recommended |
+
+---
+## Model Comparison
+
+| Metric | Logistic Regression | XGBoost | Better Model |
+|---|---:|---:|---|
+| Accuracy | 0.6900 | 0.7052 | XGBoost |
+| ROC-AUC | 0.7470 | 0.7613 | XGBoost |
+| Precision - Default Class | 0.1612 | 0.1689 | XGBoost |
+| Recall - Default Class | 0.6755 | 0.6763 | XGBoost |
+| F1 - Default Class | 0.2602 | 0.2703 | XGBoost |
+
+XGBoost is the stronger model in this version. It improves ROC-AUC, accuracy, precision, recall, and F1-score compared with the Logistic Regression baseline.
+
+The improvement is useful but modest. Precision for the default class is still low, so the model remains best suited for screening and manual review prioritization, not automatic loan rejection.
 
 ---
 
