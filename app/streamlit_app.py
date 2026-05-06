@@ -8,6 +8,7 @@ This app allows users to:
 - Generate applicant-level credit risk predictions
 - Compare Logistic Regression and XGBoost model performance
 - Review threshold analysis
+- Review XGBoost explainability outputs
 """
 
 import json
@@ -44,6 +45,13 @@ XGBOOST_ROC_CURVE_PATH = PROJECT_ROOT / "visuals" / "roc_curve_xgboost.png"
 
 LOGISTIC_CONFUSION_MATRIX_PATH = PROJECT_ROOT / "visuals" / "confusion_matrix_threshold_0_50.png"
 XGBOOST_CONFUSION_MATRIX_PATH = PROJECT_ROOT / "visuals" / "confusion_matrix_xgboost_threshold_0_50.png"
+
+SHAP_IMPORTANCE_PATH = PROJECT_ROOT / "reports" / "shap_feature_importance.csv"
+XGBOOST_IMPORTANCE_PATH = PROJECT_ROOT / "reports" / "xgboost_feature_importance.csv"
+EXPLAINABILITY_REPORT_PATH = PROJECT_ROOT / "reports" / "explainability_report.md"
+
+SHAP_VISUAL_PATH = PROJECT_ROOT / "visuals" / "shap_feature_importance_xgboost.png"
+XGBOOST_IMPORTANCE_VISUAL_PATH = PROJECT_ROOT / "visuals" / "xgboost_feature_importance.png"
 
 
 st.set_page_config(
@@ -112,6 +120,19 @@ def load_csv_file(path: str):
     return pd.read_csv(file_path)
 
 
+@st.cache_data
+def load_text_file(path: str):
+    """
+    Load text file if it exists.
+    """
+    file_path = Path(path)
+
+    if not file_path.exists():
+        return None
+
+    return file_path.read_text()
+
+
 def assign_risk_tier(default_probability: float) -> str:
     """
     Convert predicted default probability into business risk tier.
@@ -174,6 +195,41 @@ def extract_metric_row(model_name: str, metrics: dict) -> dict:
     }
 
 
+def prepare_importance_display(
+    importance_df: pd.DataFrame,
+    value_column: str,
+    value_label: str,
+    top_n: int = 15
+) -> pd.DataFrame:
+    """
+    Format feature importance results for dashboard display.
+    """
+    display_columns = [
+        "rank",
+        "feature",
+        value_column,
+        "transformed_feature_count"
+    ]
+
+    available_columns = [
+        column for column in display_columns
+        if column in importance_df.columns
+    ]
+
+    display_df = importance_df[available_columns].head(top_n).copy()
+
+    display_df = display_df.rename(
+        columns={
+            "rank": "Rank",
+            "feature": "Feature",
+            value_column: value_label,
+            "transformed_feature_count": "Encoded Feature Count"
+        }
+    )
+
+    return display_df
+
+
 def main():
     """
     Main Streamlit app.
@@ -188,14 +244,10 @@ def main():
             "Project Overview",
             "Applicant Risk Prediction",
             "Model Comparison",
+            "Explainability",
             "Threshold Analysis"
         ]
     )
-
-    df, X, y, applicant_ids = load_application_data()
-
-    logistic_model = load_model(str(LOGISTIC_MODEL_PATH))
-    xgboost_model = load_model(str(XGBOOST_MODEL_PATH))
 
     logistic_metrics = load_json_file(str(LOGISTIC_METRICS_PATH))
     xgboost_metrics = load_json_file(str(XGBOOST_METRICS_PATH))
@@ -203,8 +255,14 @@ def main():
     logistic_threshold_df = load_csv_file(str(LOGISTIC_THRESHOLD_PATH))
     xgboost_threshold_df = load_csv_file(str(XGBOOST_THRESHOLD_PATH))
 
+    shap_importance_df = load_csv_file(str(SHAP_IMPORTANCE_PATH))
+    xgboost_importance_df = load_csv_file(str(XGBOOST_IMPORTANCE_PATH))
+    explainability_report = load_text_file(str(EXPLAINABILITY_REPORT_PATH))
+
     if page == "Project Overview":
         st.header("Project Overview")
+
+        df, X, y, _ = load_application_data()
 
         col1, col2, col3, col4 = st.columns(4)
 
@@ -277,6 +335,11 @@ def main():
 
     elif page == "Applicant Risk Prediction":
         st.header("Applicant Risk Prediction")
+
+        df, X, y, applicant_ids = load_application_data()
+
+        logistic_model = load_model(str(LOGISTIC_MODEL_PATH))
+        xgboost_model = load_model(str(XGBOOST_MODEL_PATH))
 
         model_choice = st.selectbox(
             "Choose model",
@@ -452,6 +515,81 @@ def main():
                 st.image(str(XGBOOST_CONFUSION_MATRIX_PATH))
             else:
                 st.warning("XGBoost confusion matrix image not found.")
+
+    elif page == "Explainability":
+        st.header("Explainability")
+
+        st.write(
+            """
+            This page summarizes which inputs most influence the trained XGBoost
+            risk-ranking model. Feature importance should be used to understand
+            model behavior, not to make automatic lending decisions.
+            """
+        )
+
+        if shap_importance_df is None and xgboost_importance_df is None:
+            st.warning(
+                "Explainability outputs were not found. Run the command below after "
+                "training the XGBoost model."
+            )
+            st.code("python src/explain_model.py")
+        else:
+            col_left, col_right = st.columns(2)
+
+            with col_left:
+                st.subheader("SHAP Feature Importance")
+                if SHAP_VISUAL_PATH.exists():
+                    st.image(str(SHAP_VISUAL_PATH))
+                else:
+                    st.warning("SHAP feature importance visual not found.")
+
+            with col_right:
+                st.subheader("XGBoost Feature Importance")
+                if XGBOOST_IMPORTANCE_VISUAL_PATH.exists():
+                    st.image(str(XGBOOST_IMPORTANCE_VISUAL_PATH))
+                else:
+                    st.warning("XGBoost feature importance visual not found.")
+
+            if shap_importance_df is not None:
+                st.subheader("Top SHAP Risk Drivers")
+                st.dataframe(
+                    prepare_importance_display(
+                        importance_df=shap_importance_df,
+                        value_column="mean_abs_shap_value",
+                        value_label="Mean Absolute SHAP Value"
+                    ),
+                    width="stretch"
+                )
+
+            if xgboost_importance_df is not None:
+                st.subheader("Top Built-In XGBoost Features")
+                st.dataframe(
+                    prepare_importance_display(
+                        importance_df=xgboost_importance_df,
+                        value_column="xgboost_importance",
+                        value_label="XGBoost Importance"
+                    ),
+                    width="stretch"
+                )
+
+            st.subheader("Interpretation Notes")
+            st.write(
+                """
+                SHAP values show average contribution size across sampled holdout rows.
+                Built-in XGBoost importance provides a faster secondary view based on
+                how the model uses features internally.
+                """
+            )
+            st.write(
+                """
+                These rankings are global explanations. They do not prove causality,
+                and they do not replace applicant-level manual review.
+                """
+            )
+
+            if explainability_report is not None:
+                with st.expander("View Explainability Report"):
+                    st.markdown(explainability_report)
 
     elif page == "Threshold Analysis":
         st.header("Threshold Analysis")

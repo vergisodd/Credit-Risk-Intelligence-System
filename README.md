@@ -17,6 +17,7 @@ This project builds a credit risk workflow that:
 - Trains baseline and advanced machine learning models
 - Evaluates model performance using imbalance-aware metrics
 - Compares Logistic Regression and XGBoost performance
+- Explains XGBoost model behavior using SHAP and built-in feature importance
 - Converts predicted probabilities into business risk tiers
 - Provides an interactive Streamlit app for applicant-level risk review and model comparison
 
@@ -74,6 +75,7 @@ The raw dataset is not included in this repository because of file size and lice
 - scikit-learn
 - Logistic Regression
 - XGBoost
+- SHAP
 - Streamlit
 - matplotlib
 - seaborn
@@ -103,6 +105,8 @@ XGBoost Model
 Model Evaluation
    ↓
 Model Comparison
+   ↓
+Explainability
    ↓
 Threshold Analysis
    ↓
@@ -238,6 +242,39 @@ They should not be used for automatic loan rejection.
 
 ---
 
+## Explainability
+
+The project includes a reproducible XGBoost explainability workflow:
+
+```bash
+python src/explain_model.py
+```
+
+The script:
+
+- Reuses the existing cleaning and feature engineering functions
+- Loads the trained XGBoost sklearn Pipeline
+- Applies the fitted preprocessing pipeline from the trained model
+- Samples holdout rows so SHAP remains practical on a local machine
+- Groups one-hot encoded categorical features back to their original feature names
+- Saves model explanation outputs to `reports/` and `visuals/`
+
+Generated outputs:
+
+| Output | Purpose |
+|---|---|
+| [`reports/shap_feature_importance.csv`](reports/shap_feature_importance.csv) | Global SHAP feature importance ranked by mean absolute SHAP value |
+| [`reports/xgboost_feature_importance.csv`](reports/xgboost_feature_importance.csv) | Built-in XGBoost feature importance |
+| [`reports/explainability_report.md`](reports/explainability_report.md) | Plain-English explainability summary and limitations |
+| [`visuals/shap_feature_importance_xgboost.png`](visuals/shap_feature_importance_xgboost.png) | SHAP global feature importance chart |
+| [`visuals/xgboost_feature_importance.png`](visuals/xgboost_feature_importance.png) | Built-in XGBoost feature importance chart |
+
+The top risk drivers are generated from the locally trained model and written to `reports/explainability_report.md`. Typical feature groups to inspect include external source scores, income and credit burden ratios, age and employment variables, and loan amount variables. Exact rankings should be regenerated after retraining instead of hard-coded.
+
+Explainability is used here for model transparency and business interpretation. It does not prove causality, and it should not be used as a standalone reason to approve or reject an applicant.
+
+---
+
 ## Threshold Analysis
 
 Different thresholds create different business tradeoffs.
@@ -286,6 +323,7 @@ The project includes an interactive Streamlit app that allows users to:
 - Compare Logistic Regression and XGBoost performance
 - Inspect model performance
 - Explore threshold analysis
+- Review XGBoost explainability outputs
 
 Run locally:
 
@@ -296,6 +334,8 @@ streamlit run app/streamlit_app.py
 ---
 
 ## Repository Structure
+
+Some report and visual files are generated locally after running the training and explainability scripts.
 
 ```text
 Credit-Risk-Intelligence-System/
@@ -313,16 +353,20 @@ Credit-Risk-Intelligence-System/
 ├── reports/
 │   ├── baseline_model_metrics.json
 │   ├── business_recommendations.md
+│   ├── explainability_report.md
 │   ├── logistic_regression_evaluation.json
 │   ├── model_card.md
 │   ├── model_comparison.md
 │   ├── sample_predictions.csv
+│   ├── shap_feature_importance.csv
 │   ├── threshold_analysis.csv
+│   ├── xgboost_feature_importance.csv
 │   ├── xgboost_model_metrics.json
 │   └── xgboost_threshold_analysis.csv
 ├── src/
 │   ├── data_cleaning.py
 │   ├── evaluate_model.py
+│   ├── explain_model.py
 │   ├── feature_engineering.py
 │   ├── predict.py
 │   ├── train_model.py
@@ -331,7 +375,9 @@ Credit-Risk-Intelligence-System/
 │   ├── confusion_matrix_threshold_0_50.png
 │   ├── confusion_matrix_xgboost_threshold_0_50.png
 │   ├── roc_curve_logistic_regression.png
-│   └── roc_curve_xgboost.png
+│   ├── roc_curve_xgboost.png
+│   ├── shap_feature_importance_xgboost.png
+│   └── xgboost_feature_importance.png
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -396,19 +442,31 @@ python src/train_model.py
 python src/train_xgboost.py
 ```
 
-### 7. Evaluate the Logistic Regression model
+### 7. Generate XGBoost explainability outputs
+
+```bash
+python src/explain_model.py
+```
+
+Optional faster test run:
+
+```bash
+python src/explain_model.py --sample-size 500 --top-n 20
+```
+
+### 8. Evaluate the Logistic Regression model
 
 ```bash
 python src/evaluate_model.py
 ```
 
-### 8. Generate sample predictions
+### 9. Generate sample predictions
 
 ```bash
 python src/predict.py
 ```
 
-### 9. Run the Streamlit app
+### 10. Run the Streamlit app
 
 ```bash
 streamlit run app/streamlit_app.py
@@ -425,10 +483,12 @@ streamlit run app/streamlit_app.py
 | `src/train_model.py` | Trains the Logistic Regression baseline model |
 | `src/train_xgboost.py` | Trains the XGBoost credit risk model |
 | `src/evaluate_model.py` | Evaluates Logistic Regression and saves threshold analysis |
+| `src/explain_model.py` | Generates SHAP and XGBoost feature importance outputs |
 | `src/predict.py` | Generates applicant-level risk predictions |
 | `app/streamlit_app.py` | Interactive dashboard for risk review and model comparison |
 | `reports/model_card.md` | Technical model documentation |
 | `reports/model_comparison.md` | Compares Logistic Regression and XGBoost performance |
+| `reports/explainability_report.md` | Summarizes global XGBoost feature importance and limitations |
 | `reports/business_recommendations.md` | Business interpretation and recommendations |
 
 ---
@@ -443,7 +503,8 @@ Main limitations:
 - Does not yet use bureau, previous application, installment, or credit card history tables
 - Logistic Regression and XGBoost still have low precision for the default class
 - XGBoost has been added, but Random Forest has not been added yet
-- No SHAP explainability yet
+- Explainability is global, not applicant-level local explanation in the app
+- SHAP uses a sampled holdout set for practical runtime
 - No full fairness or bias analysis yet
 - No deployed public app yet
 - No model monitoring or drift simulation yet
@@ -455,10 +516,10 @@ Main limitations:
 Planned next steps:
 
 - Add Random Forest as a third comparison model
-- Add SHAP explainability
 - Tune thresholds using business cost assumptions
-- Add feature importance analysis
+- Add applicant-level SHAP explanations in the Streamlit app
 - Integrate additional Home Credit relational tables
+- Add fairness and subgroup performance analysis with careful limitations
 - Deploy Streamlit app publicly
 - Add model monitoring and drift simulation
 - Add screenshots of the Streamlit app to the README
