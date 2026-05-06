@@ -1,13 +1,13 @@
+
 """
 Streamlit app for the Credit Risk Intelligence System.
 
 This app allows users to:
 - View project summary
-- Load the trained Logistic Regression baseline model
-- Select an applicant from the dataset
-- Generate default-risk predictions
-- View business risk tiers
-- Review model performance metrics
+- Select a trained model
+- Generate applicant-level credit risk predictions
+- Compare Logistic Regression and XGBoost model performance
+- Review threshold analysis
 """
 
 import json
@@ -28,12 +28,22 @@ from data_cleaning import load_raw_data, prepare_features_and_target
 from feature_engineering import add_domain_features
 
 
-MODEL_PATH = PROJECT_ROOT / "models" / "logistic_regression_baseline.joblib"
+LOGISTIC_MODEL_PATH = PROJECT_ROOT / "models" / "logistic_regression_baseline.joblib"
+XGBOOST_MODEL_PATH = PROJECT_ROOT / "models" / "xgboost_credit_risk_model.joblib"
+
 RAW_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "application_train.csv"
-METRICS_PATH = PROJECT_ROOT / "reports" / "baseline_model_metrics.json"
-THRESHOLD_PATH = PROJECT_ROOT / "reports" / "threshold_analysis.csv"
-ROC_CURVE_PATH = PROJECT_ROOT / "visuals" / "roc_curve_logistic_regression.png"
-CONFUSION_MATRIX_PATH = PROJECT_ROOT / "visuals" / "confusion_matrix_threshold_0_50.png"
+
+LOGISTIC_METRICS_PATH = PROJECT_ROOT / "reports" / "baseline_model_metrics.json"
+XGBOOST_METRICS_PATH = PROJECT_ROOT / "reports" / "xgboost_model_metrics.json"
+
+LOGISTIC_THRESHOLD_PATH = PROJECT_ROOT / "reports" / "threshold_analysis.csv"
+XGBOOST_THRESHOLD_PATH = PROJECT_ROOT / "reports" / "xgboost_threshold_analysis.csv"
+
+LOGISTIC_ROC_CURVE_PATH = PROJECT_ROOT / "visuals" / "roc_curve_logistic_regression.png"
+XGBOOST_ROC_CURVE_PATH = PROJECT_ROOT / "visuals" / "roc_curve_xgboost.png"
+
+LOGISTIC_CONFUSION_MATRIX_PATH = PROJECT_ROOT / "visuals" / "confusion_matrix_threshold_0_50.png"
+XGBOOST_CONFUSION_MATRIX_PATH = PROJECT_ROOT / "visuals" / "confusion_matrix_xgboost_threshold_0_50.png"
 
 
 st.set_page_config(
@@ -44,15 +54,16 @@ st.set_page_config(
 
 
 @st.cache_resource
-def load_model():
+def load_model(model_path: str):
     """
-    Load trained model.
+    Load trained model from disk.
     """
-    if not MODEL_PATH.exists():
-        st.error("Model file not found. Run `python src/train_model.py` first.")
-        st.stop()
+    path = Path(model_path)
 
-    return joblib.load(MODEL_PATH)
+    if not path.exists():
+        return None
+
+    return joblib.load(path)
 
 
 @st.cache_data
@@ -75,31 +86,35 @@ def load_application_data():
 
 
 @st.cache_data
-def load_metrics():
+def load_json_file(path: str):
     """
-    Load saved model metrics.
+    Load JSON file if it exists.
     """
-    if not METRICS_PATH.exists():
+    file_path = Path(path)
+
+    if not file_path.exists():
         return None
 
-    with open(METRICS_PATH, "r") as file:
+    with open(file_path, "r") as file:
         return json.load(file)
 
 
 @st.cache_data
-def load_threshold_analysis():
+def load_csv_file(path: str):
     """
-    Load threshold analysis table.
+    Load CSV file if it exists.
     """
-    if not THRESHOLD_PATH.exists():
+    file_path = Path(path)
+
+    if not file_path.exists():
         return None
 
-    return pd.read_csv(THRESHOLD_PATH)
+    return pd.read_csv(file_path)
 
 
 def assign_risk_tier(default_probability: float) -> str:
     """
-    Convert probability into business risk tier.
+    Convert predicted default probability into business risk tier.
     """
     if default_probability < 0.30:
         return "Low Risk"
@@ -123,6 +138,42 @@ def get_risk_action(risk_tier: str) -> str:
     return "Manual risk review recommended"
 
 
+def extract_metric_row(model_name: str, metrics: dict) -> dict:
+    """
+    Convert saved metrics JSON into a comparison row.
+    """
+    if metrics is None:
+        return {
+            "Model": model_name,
+            "Accuracy": None,
+            "ROC-AUC": None,
+            "Precision": None,
+            "Recall": None,
+            "F1": None
+        }
+
+    if "default_threshold_metrics" in metrics:
+        threshold_metrics = metrics["default_threshold_metrics"]
+
+        return {
+            "Model": model_name,
+            "Accuracy": threshold_metrics["accuracy"],
+            "ROC-AUC": metrics["roc_auc"],
+            "Precision": threshold_metrics["precision_default_class"],
+            "Recall": threshold_metrics["recall_default_class"],
+            "F1": threshold_metrics["f1_default_class"]
+        }
+
+    return {
+        "Model": model_name,
+        "Accuracy": metrics["accuracy"],
+        "ROC-AUC": metrics["roc_auc"],
+        "Precision": metrics["precision_default_class"],
+        "Recall": metrics["recall_default_class"],
+        "F1": metrics["f1_default_class"]
+    }
+
+
 def main():
     """
     Main Streamlit app.
@@ -136,15 +187,21 @@ def main():
         [
             "Project Overview",
             "Applicant Risk Prediction",
-            "Model Performance",
+            "Model Comparison",
             "Threshold Analysis"
         ]
     )
 
-    model = load_model()
     df, X, y, applicant_ids = load_application_data()
-    metrics = load_metrics()
-    threshold_df = load_threshold_analysis()
+
+    logistic_model = load_model(str(LOGISTIC_MODEL_PATH))
+    xgboost_model = load_model(str(XGBOOST_MODEL_PATH))
+
+    logistic_metrics = load_json_file(str(LOGISTIC_METRICS_PATH))
+    xgboost_metrics = load_json_file(str(XGBOOST_METRICS_PATH))
+
+    logistic_threshold_df = load_csv_file(str(LOGISTIC_THRESHOLD_PATH))
+    xgboost_threshold_df = load_csv_file(str(XGBOOST_THRESHOLD_PATH))
 
     if page == "Project Overview":
         st.header("Project Overview")
@@ -175,10 +232,25 @@ def main():
 
         st.write(
             """
-            This project predicts default risk and translates predictions into practical
+            This project predicts default risk and translates model outputs into practical
             business risk tiers: Low Risk, Medium Risk, and High Risk.
             """
         )
+
+        st.subheader("Models Included")
+
+        model_table = pd.DataFrame(
+            {
+                "Model": ["Logistic Regression", "XGBoost"],
+                "Role": ["Baseline model", "Improved gradient boosting model"],
+                "Purpose": [
+                    "Simple benchmark with interpretable baseline performance",
+                    "Stronger predictive model for risk ranking"
+                ]
+            }
+        )
+
+        st.dataframe(model_table, width="stretch")
 
         st.subheader("Risk Tier Logic")
 
@@ -194,25 +266,41 @@ def main():
             }
         )
 
-        st.dataframe(risk_tier_table, use_container_width=True)
-
-        st.subheader("Important Note")
+        st.dataframe(risk_tier_table, width="stretch")
 
         st.warning(
             """
-            This baseline model should not be used for automatic loan rejection.
-            Its best current use case is risk screening and manual review prioritization.
+            This system is for risk screening and manual review prioritization.
+            It should not be used for automatic loan rejection.
             """
         )
 
     elif page == "Applicant Risk Prediction":
         st.header("Applicant Risk Prediction")
 
-        st.write(
-            """
-            Select an applicant ID from the dataset to generate a default-risk prediction.
-            """
+        model_choice = st.selectbox(
+            "Choose model",
+            ["Logistic Regression", "XGBoost"]
         )
+
+        if model_choice == "Logistic Regression":
+            selected_model = logistic_model
+            selected_model_path = LOGISTIC_MODEL_PATH
+        else:
+            selected_model = xgboost_model
+            selected_model_path = XGBOOST_MODEL_PATH
+
+        if selected_model is None:
+            st.error(
+                f"""
+                The selected model artifact was not found:
+
+                `{selected_model_path}`
+
+                Train the model locally before using this page.
+                """
+            )
+            st.stop()
 
         selected_applicant_id = st.selectbox(
             "Select Applicant ID",
@@ -224,20 +312,23 @@ def main():
         applicant_features = X.loc[[selected_index]]
         actual_target = int(y.loc[selected_index])
 
-        default_probability = float(model.predict_proba(applicant_features)[:, 1][0])
-        predicted_class = int(model.predict(applicant_features)[0])
+        default_probability = float(selected_model.predict_proba(applicant_features)[:, 1][0])
+        predicted_class = int(selected_model.predict(applicant_features)[0])
         risk_tier = assign_risk_tier(default_probability)
         action = get_risk_action(risk_tier)
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("Default Probability", f"{default_probability:.2%}")
+            st.metric("Selected Model", model_choice)
 
         with col2:
-            st.metric("Risk Tier", risk_tier)
+            st.metric("Default Probability", f"{default_probability:.2%}")
 
         with col3:
+            st.metric("Risk Tier", risk_tier)
+
+        with col4:
             st.metric("Predicted Class", predicted_class)
 
         st.subheader("Recommended Business Action")
@@ -274,77 +365,109 @@ def main():
 
         st.dataframe(
             original_row[available_display_columns],
-            use_container_width=True
+            width="stretch"
         )
 
-    elif page == "Model Performance":
-        st.header("Model Performance")
+    elif page == "Model Comparison":
+        st.header("Model Comparison")
 
-        if metrics is None:
-            st.error("Metrics file not found. Run `python src/train_model.py` first.")
-            st.stop()
+        comparison_df = pd.DataFrame(
+            [
+                extract_metric_row("Logistic Regression", logistic_metrics),
+                extract_metric_row("XGBoost", xgboost_metrics)
+            ]
+        )
 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        st.subheader("Performance Summary")
+        st.dataframe(comparison_df, width="stretch")
 
-        with col1:
-            st.metric("Accuracy", f"{metrics['accuracy']:.4f}")
+        if xgboost_metrics is not None and logistic_metrics is not None:
+            logistic_auc = comparison_df.loc[
+                comparison_df["Model"] == "Logistic Regression",
+                "ROC-AUC"
+            ].iloc[0]
 
-        with col2:
-            st.metric("ROC-AUC", f"{metrics['roc_auc']:.4f}")
+            xgboost_auc = comparison_df.loc[
+                comparison_df["Model"] == "XGBoost",
+                "ROC-AUC"
+            ].iloc[0]
 
-        with col3:
-            st.metric(
-                "Precision",
-                f"{metrics['precision_default_class']:.4f}"
-            )
+            auc_lift = xgboost_auc - logistic_auc
 
-        with col4:
-            st.metric(
-                "Recall",
-                f"{metrics['recall_default_class']:.4f}"
-            )
+            col1, col2, col3 = st.columns(3)
 
-        with col5:
-            st.metric("F1", f"{metrics['f1_default_class']:.4f}")
+            with col1:
+                st.metric("Logistic ROC-AUC", f"{logistic_auc:.4f}")
+
+            with col2:
+                st.metric("XGBoost ROC-AUC", f"{xgboost_auc:.4f}")
+
+            with col3:
+                st.metric("ROC-AUC Lift", f"{auc_lift:.4f}")
 
         st.subheader("Interpretation")
 
         st.write(
             """
-            The model has useful ranking ability, shown by a ROC-AUC of about 0.747.
-            However, precision for the default class is low, meaning many applicants
-            flagged as risky are actually non-default applicants.
+            XGBoost improves ROC-AUC, accuracy, precision, recall, and F1-score compared
+            with the Logistic Regression baseline. The improvement is useful but modest.
             """
         )
 
         st.write(
             """
-            The baseline is better suited for screening and review prioritization
-            than automatic decision-making.
+            Precision for the default class remains low, so the model should be treated
+            as a screening and prioritization tool, not an automatic loan rejection system.
             """
         )
 
         col_left, col_right = st.columns(2)
 
         with col_left:
-            st.subheader("ROC Curve")
-            if ROC_CURVE_PATH.exists():
-                st.image(str(ROC_CURVE_PATH))
+            st.subheader("Logistic Regression ROC Curve")
+            if LOGISTIC_ROC_CURVE_PATH.exists():
+                st.image(str(LOGISTIC_ROC_CURVE_PATH))
             else:
-                st.warning("ROC curve image not found.")
+                st.warning("Logistic ROC curve image not found.")
 
         with col_right:
-            st.subheader("Confusion Matrix")
-            if CONFUSION_MATRIX_PATH.exists():
-                st.image(str(CONFUSION_MATRIX_PATH))
+            st.subheader("XGBoost ROC Curve")
+            if XGBOOST_ROC_CURVE_PATH.exists():
+                st.image(str(XGBOOST_ROC_CURVE_PATH))
             else:
-                st.warning("Confusion matrix image not found.")
+                st.warning("XGBoost ROC curve image not found.")
+
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            st.subheader("Logistic Regression Confusion Matrix")
+            if LOGISTIC_CONFUSION_MATRIX_PATH.exists():
+                st.image(str(LOGISTIC_CONFUSION_MATRIX_PATH))
+            else:
+                st.warning("Logistic confusion matrix image not found.")
+
+        with col_right:
+            st.subheader("XGBoost Confusion Matrix")
+            if XGBOOST_CONFUSION_MATRIX_PATH.exists():
+                st.image(str(XGBOOST_CONFUSION_MATRIX_PATH))
+            else:
+                st.warning("XGBoost confusion matrix image not found.")
 
     elif page == "Threshold Analysis":
         st.header("Threshold Analysis")
 
+        model_choice = st.selectbox(
+            "Choose threshold table",
+            ["Logistic Regression", "XGBoost"]
+        )
+
+        if model_choice == "Logistic Regression":
+            threshold_df = logistic_threshold_df
+        else:
+            threshold_df = xgboost_threshold_df
+
         if threshold_df is None:
-            st.error("Threshold analysis file not found. Run `python src/evaluate_model.py` first.")
+            st.error("Threshold analysis file not found. Run the model training/evaluation scripts first.")
             st.stop()
 
         st.write(
@@ -354,7 +477,7 @@ def main():
             """
         )
 
-        st.dataframe(threshold_df, use_container_width=True)
+        st.dataframe(threshold_df, width="stretch")
 
         st.subheader("Business Interpretation")
 
@@ -367,8 +490,8 @@ def main():
 
         st.write(
             """
-            For this baseline model, a threshold around 0.60 or 0.70 may be more useful
-            for creating a manual review queue, while 0.50 works as a broad screening baseline.
+            This threshold analysis is more useful than accuracy alone because credit risk
+            is an imbalanced classification problem.
             """
         )
 

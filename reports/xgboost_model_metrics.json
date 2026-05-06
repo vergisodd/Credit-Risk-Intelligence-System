@@ -1,0 +1,43 @@
+{
+    "model_name": "xgboost_credit_risk_model",
+    "roc_auc": 0.7613264498879756,
+    "default_threshold_metrics": {
+        "threshold": 0.5,
+        "accuracy": 0.7052013722907826,
+        "precision_default_class": 0.16889648928679207,
+        "recall_default_class": 0.6763343403826787,
+        "f1_default_class": 0.27029420050710345,
+        "true_negatives": 40014,
+        "false_positives": 16524,
+        "false_negatives": 1607,
+        "true_positives": 3358,
+        "predicted_default_count": 19882
+    },
+    "classification_report_threshold_0_50": {
+        "0": {
+            "precision": 0.9613896830926696,
+            "recall": 0.7077363896848138,
+            "f1-score": 0.815289479314174,
+            "support": 56538.0
+        },
+        "1": {
+            "precision": 0.16889648928679207,
+            "recall": 0.6763343403826787,
+            "f1-score": 0.27029420050710345,
+            "support": 4965.0
+        },
+        "accuracy": 0.7052013722907826,
+        "macro avg": {
+            "precision": 0.5651430861897309,
+            "recall": 0.6920353650337463,
+            "f1-score": 0.5427918399106387,
+            "support": 61503.0
+        },
+        "weighted avg": {
+            "precision": 0.8974134753101844,
+            "recall": 0.7052013722907826,
+            "f1-score": 0.7712932261350265,
+            "support": 61503.0
+        }
+    }
+}
