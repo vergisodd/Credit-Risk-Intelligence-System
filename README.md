@@ -160,7 +160,7 @@ Performance on the test set:
 
 At threshold `0.50`:
 
-|  | Predicted Non-Default | Predicted Default |
+| Actual / Predicted | Predicted Non-Default | Predicted Default |
 |---|---:|---:|
 | Actual Non-Default | 39,080 | 17,458 |
 | Actual Default | 1,611 | 3,354 |
@@ -277,6 +277,8 @@ cd Credit-Risk-Intelligence-System
 ```
 
 ### 2. Create a virtual environment
+
+For macOS/Linux:
 
 ```bash
 python3 -m venv venv
