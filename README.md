@@ -351,15 +351,25 @@ The Streamlit app includes pages for:
 - Threshold analysis
 - Explainability / feature importance
 
-Screenshots will be added after capturing the local Streamlit app pages.
+### Project Overview
 
-Expected screenshot files:
+![Project Overview](screenshots/project_overview.png)
 
-- `screenshots/project_overview.png`
-- `screenshots/applicant_risk_prediction.png`
-- `screenshots/model_comparison.png`
-- `screenshots/threshold_analysis.png`
-- `screenshots/explainability.png`
+### Applicant Risk Prediction
+
+![Applicant Risk Prediction](screenshots/applicant_risk_prediction.png)
+
+### Model Comparison
+
+![Model Comparison](screenshots/model_comparison.png)
+
+### Threshold Analysis
+
+![Threshold Analysis](screenshots/threshold_analysis.png)
+
+### Explainability
+
+![Explainability](screenshots/explainability.png)
 
 ### How to Capture Screenshots
 
@@ -416,11 +426,11 @@ Credit-Risk-Intelligence-System/
 │   └── 01_eda_baseline.ipynb
 ├── screenshots/
 │   ├── .gitkeep
-│   ├── project_overview.png (expected)
-│   ├── applicant_risk_prediction.png (expected)
-│   ├── model_comparison.png (expected)
-│   ├── threshold_analysis.png (expected)
-│   └── explainability.png (expected)
+│   ├── project_overview.png
+│   ├── applicant_risk_prediction.png
+│   ├── model_comparison.png
+│   ├── threshold_analysis.png
+│   └── explainability.png
 ├── reports/
 │   ├── baseline_model_metrics.json
 │   ├── business_recommendations.md
