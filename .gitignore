@@ -14,18 +14,23 @@ __pycache__/
 .DS_Store
 
 # Data files
-data/raw/*
-data/processed/*
+data/raw/*.csv
+data/processed/*.csv
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
 # Model artifacts
-models/*.pkl
-models/*.joblib
+*.pkl
+*.joblib
 !models/.gitkeep
 
 # Environment variables
 .env
+venv/
 
 # Logs
 *.log
+
+# Optuna
+.optuna/
+optuna.db
