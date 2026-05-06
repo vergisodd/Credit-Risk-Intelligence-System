@@ -208,3 +208,79 @@ Credit-Risk-Intelligence-System/
 ├── .gitignore
 ├── README.md
 └── requirements.txt
+
+How to Run This Project
+1. Clone the repository
+git clone https://github.com/vergisodd/Credit-Risk-Intelligence-System.git
+cd Credit-Risk-Intelligence-System
+2. Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+3. Install dependencies
+pip install -r requirements.txt
+4. Add dataset
+
+Download the Home Credit Default Risk dataset and place:
+
+application_train.csv
+
+inside:
+
+data/raw/
+5. Train the model
+python src/train_model.py
+6. Evaluate the model
+python src/evaluate_model.py
+7. Generate sample predictions
+python src/predict.py
+8. Run the Streamlit app
+streamlit run app/streamlit_app.py
+Key Project Files
+File	Purpose
+src/data_cleaning.py	Loads data, handles missing columns, prepares features and target
+src/feature_engineering.py	Adds domain-specific credit risk features
+src/train_model.py	Trains the Logistic Regression baseline model
+src/evaluate_model.py	Evaluates model and saves threshold analysis
+src/predict.py	Generates applicant-level risk predictions
+app/streamlit_app.py	Interactive dashboard for risk review
+reports/model_card.md	Technical model documentation
+reports/business_recommendations.md	Business interpretation and recommendations
+Current Limitations
+
+This is a baseline version. Main limitations:
+
+Uses only application_train.csv
+Does not yet use bureau, previous application, installment, or credit card history tables
+Logistic Regression has low precision for the default class
+No XGBoost or Random Forest comparison yet
+No SHAP explainability yet
+No full fairness or bias analysis yet
+No deployed public app yet
+Next Improvements
+
+Planned next steps:
+
+Train Random Forest and XGBoost models
+Add SHAP explainability
+Tune thresholds using business cost assumptions
+Add feature importance analysis
+Integrate additional Home Credit relational tables
+Deploy Streamlit app publicly
+Add model monitoring and drift simulation
+Business Takeaway
+
+The model is not strong enough for automatic lending decisions, but it is useful as a credit risk screening tool.
+
+The strongest current use case is helping credit teams prioritize manual review by ranking applicants based on predicted payment difficulty risk.
+
+
+Then save it.
+
+## Commit the README upgrade
+
+Run:
+
+```bash
+git add README.md
+git commit -m "Improve project README documentation"
+git push
