@@ -1,107 +1,15 @@
 # Model Comparison Report
 
-## Project
+## Summary
 
-Credit Risk Intelligence System
+The strongest holdout model is **LightGBM** with ROC-AUC 0.7715 and Average Precision 0.2608.
 
-## Objective
+| Model | AUC-ROC | Average Precision | F1-Default | Precision-Default | Recall-Default | Optimal Threshold | FP at Optimal | FN at Optimal |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Logistic Regression | 0.7507 | 0.2333 | 0.2623 | 0.1626 | 0.6777 | 0.6500 | 7384 | 2782 |
+| XGBoost | 0.7680 | 0.2575 | 0.2877 | 0.1855 | 0.6401 | 0.6800 | 4897 | 3086 |
+| LightGBM | 0.7715 | 0.2608 | 0.2795 | 0.1754 | 0.6878 | 0.6600 | 6498 | 2762 |
 
-This report compares the baseline Logistic Regression model against an XGBoost model for loan default risk prediction.
+## Calibration Interpretation
 
-The goal is to evaluate whether a more advanced tree-based model improves predictive performance on the Home Credit Default Risk dataset.
-
----
-
-## Models Compared
-
-| Model | Description |
-|---|---|
-| Logistic Regression | Baseline linear classifier with `class_weight="balanced"` |
-| XGBoost | Gradient boosting classifier with class imbalance weighting using `scale_pos_weight` |
-
----
-
-## Test Set Performance
-
-| Metric | Logistic Regression | XGBoost | Better Model |
-|---|---:|---:|---|
-| Accuracy | 0.6900 | 0.7052 | XGBoost |
-| ROC-AUC | 0.7470 | 0.7613 | XGBoost |
-| Precision — Default Class | 0.1612 | 0.1689 | XGBoost |
-| Recall — Default Class | 0.6755 | 0.6763 | XGBoost |
-| F1 — Default Class | 0.2602 | 0.2703 | XGBoost |
-
----
-
-## Confusion Matrix Comparison
-
-### Logistic Regression — Threshold 0.50
-
-| Actual / Predicted | Predicted Non-Default | Predicted Default |
-|---|---:|---:|
-| Actual Non-Default | 39,080 | 17,458 |
-| Actual Default | 1,611 | 3,354 |
-
-### XGBoost — Threshold 0.50
-
-| Actual / Predicted | Predicted Non-Default | Predicted Default |
-|---|---:|---:|
-| Actual Non-Default | 40,014 | 16,524 |
-| Actual Default | 1,607 | 3,358 |
-
----
-
-## Key Findings
-
-### 1. XGBoost improves ROC-AUC
-
-XGBoost achieved a ROC-AUC of 0.7613 compared to 0.7470 for Logistic Regression.
-
-This means XGBoost has better ranking ability and is better at separating higher-risk applicants from lower-risk applicants.
-
-### 2. XGBoost reduces false positives
-
-At the 0.50 threshold:
-
-- Logistic Regression false positives: 17,458
-- XGBoost false positives: 16,524
-
-XGBoost reduced false positives by 934 applicants.
-
-This matters because false positives can create unnecessary manual reviews and may incorrectly flag reliable applicants as risky.
-
-### 3. Recall is almost unchanged
-
-Default-class recall:
-
-- Logistic Regression: 0.6755
-- XGBoost: 0.6763
-
-XGBoost catches roughly the same share of risky applicants as Logistic Regression.
-
-### 4. Precision is still low
-
-XGBoost precision for the default class is 0.1689.
-
-This is better than Logistic Regression, but still low. Many applicants flagged as risky are still non-default applicants.
-
-This means the model should not be used for automatic loan rejection.
-
----
-
-## Business Interpretation
-
-XGBoost is the stronger model for this version of the project.
-
-It improves ROC-AUC, accuracy, precision, recall, F1-score, and reduces false positives.
-
-However, the improvement is modest. The model is useful for risk screening and manual review prioritization, not automatic lending decisions.
-
----
-
-## Recommended Model
-
-The recommended model for the current version is:
-
-```text
-XGBoost Credit Risk Model
+The calibration plot compares predicted default probabilities with observed default rates across probability bins. For risk-tiering, calibration matters because a score near 0.59 should behave like a materially higher-risk applicant group than a score near 0.30. If the curve sits far from the diagonal, predicted probabilities are still useful for ranking, but the exact percentages should be treated as review scores rather than literal default-rate estimates.
