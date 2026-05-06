@@ -526,13 +526,20 @@ def main():
             model behavior, not to make automatic lending decisions.
             """
         )
+        st.info(
+            """
+            These are global model-level explanations. They describe average model
+            behavior across sampled holdout applicants and should support analysis,
+            not replace manual credit review or policy decisions.
+            """
+        )
 
         if shap_importance_df is None and xgboost_importance_df is None:
             st.warning(
                 "Explainability outputs were not found. Run the command below after "
                 "training the XGBoost model."
             )
-            st.code("python src/explain_model.py")
+            st.code("python src/explain_model.py --sample-size 500 --top-n 20")
         else:
             col_left, col_right = st.columns(2)
 
@@ -584,6 +591,14 @@ def main():
                 """
                 These rankings are global explanations. They do not prove causality,
                 and they do not replace applicant-level manual review.
+                """
+            )
+            st.write(
+                """
+                External source scores, loan affordability ratios, employment history,
+                and high-cardinality categorical groups may appear as strong global
+                risk drivers. Those patterns should be interpreted carefully because
+                feature importance is descriptive, not causal.
                 """
             )
 

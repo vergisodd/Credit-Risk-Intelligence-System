@@ -263,6 +263,8 @@ These tiers are designed for review prioritization, not automatic approval or re
 
 The project includes an XGBoost explainability workflow that generates global feature importance outputs from the trained model.
 
+This layer helps answer a practical review question: which feature groups most influenced the model's risk ranking behavior across sampled holdout applicants?
+
 The explainability script:
 
 - Loads the trained XGBoost sklearn Pipeline
@@ -273,12 +275,6 @@ The explainability script:
 - Saves explanation outputs to `reports/` and `visuals/`
 
 Run locally after training XGBoost:
-
-```bash
-python src/explain_model.py
-```
-
-Optional faster test run:
 
 ```bash
 python src/explain_model.py --sample-size 500 --top-n 20
@@ -294,7 +290,15 @@ Generated outputs include:
 | `visuals/shap_feature_importance_xgboost.png` | SHAP global feature importance chart |
 | `visuals/xgboost_feature_importance.png` | Built-in XGBoost feature importance chart |
 
+Built-in XGBoost importance provides a fast view of which features the model uses heavily. SHAP importance estimates the average contribution size of each feature to predictions across sampled holdout rows.
+
 Feature importance is useful for model transparency, but it is not causal evidence and should not be used as the sole basis for lending decisions.
+
+### Explainability Visuals
+
+![XGBoost Feature Importance](visuals/xgboost_feature_importance.png)
+
+![SHAP Feature Importance](visuals/shap_feature_importance_xgboost.png)
 
 ---
 
@@ -359,11 +363,14 @@ Credit-Risk-Intelligence-System/
 ├── reports/
 │   ├── baseline_model_metrics.json
 │   ├── business_recommendations.md
+│   ├── explainability_report.md
 │   ├── logistic_regression_evaluation.json
 │   ├── model_card.md
 │   ├── model_comparison.md
 │   ├── sample_predictions.csv
+│   ├── shap_feature_importance.csv
 │   ├── threshold_analysis.csv
+│   ├── xgboost_feature_importance.csv
 │   ├── xgboost_model_metrics.json
 │   └── xgboost_threshold_analysis.csv
 ├── src/
@@ -378,7 +385,9 @@ Credit-Risk-Intelligence-System/
 │   ├── confusion_matrix_threshold_0_50.png
 │   ├── confusion_matrix_xgboost_threshold_0_50.png
 │   ├── roc_curve_logistic_regression.png
-│   └── roc_curve_xgboost.png
+│   ├── roc_curve_xgboost.png
+│   ├── shap_feature_importance_xgboost.png
+│   └── xgboost_feature_importance.png
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -460,7 +469,7 @@ python src/train_xgboost.py
 ### 7. Generate XGBoost explainability outputs
 
 ```bash
-python src/explain_model.py
+python src/explain_model.py --sample-size 500 --top-n 20
 ```
 
 ### 8. Evaluate Logistic Regression
@@ -497,6 +506,7 @@ streamlit run app/streamlit_app.py
 | `app/streamlit_app.py` | Interactive Streamlit dashboard for risk prediction, model comparison, threshold analysis, and explainability review |
 | `reports/model_card.md` | Model documentation, intended use, and limitations |
 | `reports/model_comparison.md` | Comparison of Logistic Regression and XGBoost performance |
+| `reports/explainability_report.md` | Summary of global XGBoost/SHAP feature importance and interpretation limits |
 | `reports/business_recommendations.md` | Business interpretation and recommended use cases |
 
 ---

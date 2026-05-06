@@ -12,6 +12,7 @@ This script:
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import joblib
@@ -38,8 +39,8 @@ XGBOOST_VISUAL_OUTPUT_PATH = "visuals/xgboost_feature_importance.png"
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.20
-DEFAULT_SAMPLE_SIZE = 1000
-DEFAULT_TOP_N = 25
+DEFAULT_SAMPLE_SIZE = 500
+DEFAULT_TOP_N = 20
 
 
 def parse_args() -> argparse.Namespace:
@@ -91,7 +92,8 @@ def load_xgboost_pipeline(model_path: str) -> Pipeline:
         raise FileNotFoundError(
             "Trained XGBoost model artifact was not found. "
             f"Expected file: {model_path}. "
-            "Run `python src/train_xgboost.py` before explainability."
+            "Run `python src/train_xgboost.py` before explainability. "
+            "Model artifacts are intentionally not committed to GitHub."
         )
 
     model = joblib.load(path)
@@ -114,6 +116,15 @@ def prepare_holdout_data(
     """
     Prepare the same engineered holdout data used by model training.
     """
+    path = Path(raw_data_path)
+
+    if not path.exists():
+        raise FileNotFoundError(
+            "Raw Home Credit dataset was not found. "
+            f"Expected file: {raw_data_path}. "
+            "Download `application_train.csv` from Kaggle and place it in `data/raw/`."
+        )
+
     df = load_raw_data(raw_data_path)
     X, y, _ = prepare_features_and_target(df)
     X = add_domain_features(X)
@@ -293,12 +304,25 @@ def calculate_shap_importance(
     """
     Calculate mean absolute SHAP values for sampled holdout rows.
     """
-    import shap
+    try:
+        import shap
+    except ImportError as error:
+        raise RuntimeError(
+            "SHAP is not installed in the active environment. "
+            "Install project dependencies with `pip install -r requirements.txt`."
+        ) from error
 
     processed_sample_dense = to_dense_array(processed_sample)
 
-    explainer = shap.TreeExplainer(xgboost_model)
-    shap_values = explainer.shap_values(processed_sample_dense)
+    try:
+        explainer = shap.TreeExplainer(xgboost_model)
+        shap_values = explainer.shap_values(processed_sample_dense)
+    except Exception as error:
+        raise RuntimeError(
+            "SHAP calculation failed. Try a smaller sample, for example "
+            "`python src/explain_model.py --sample-size 250 --top-n 20`, "
+            "and confirm that the installed SHAP and XGBoost versions are compatible."
+        ) from error
 
     if isinstance(shap_values, list):
         shap_values = shap_values[-1]
@@ -349,13 +373,17 @@ def calculate_xgboost_importance(
     return importance_df
 
 
-def save_importance_csv(importance_df: pd.DataFrame, output_path: str) -> None:
+def save_importance_csv(
+    importance_df: pd.DataFrame,
+    output_path: str,
+    top_n: int
+) -> None:
     """
-    Save feature importance values as a CSV file.
+    Save top feature importance values as a CSV file.
     """
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    importance_df.to_csv(output_file, index=False)
+    importance_df.head(top_n).to_csv(output_file, index=False)
 
 
 def save_importance_chart(
@@ -406,6 +434,7 @@ def create_markdown_table(
     display_df = importance_df[["rank", "feature", value_column]].head(top_n).copy()
 
     value_label = value_column.replace("_", " ").title()
+    value_label = value_label.replace("Shap", "SHAP").replace("Xgboost", "XGBoost")
     lines = [
         f"| Rank | Feature | {value_label} |",
         "|---:|---|---:|"
@@ -417,6 +446,15 @@ def create_markdown_table(
         )
 
     return "\n".join(lines)
+
+
+def summarize_top_features(importance_df: pd.DataFrame, top_n: int = 5) -> str:
+    """
+    Create a readable comma-separated list of top feature names.
+    """
+    top_features = importance_df["feature"].head(top_n).tolist()
+
+    return ", ".join(f"`{feature}`" for feature in top_features)
 
 
 def save_explainability_report(
@@ -440,9 +478,14 @@ def save_explainability_report(
         value_column="xgboost_importance"
     )
 
+    top_shap_features = summarize_top_features(shap_importance_df)
+    top_xgboost_features = summarize_top_features(xgboost_importance_df)
+
     report = f"""# XGBoost Explainability Report
 
-This report summarizes global feature importance for the trained XGBoost credit risk model.
+This report summarizes global feature importance for the trained XGBoost credit risk model in the Credit Risk Intelligence System.
+
+Explainability in this project is used to understand broad model behavior and support business interpretation. It is not a substitute for credit policy, fairness review, or human judgment.
 
 ## Method
 
@@ -451,6 +494,12 @@ This report summarizes global feature importance for the trained XGBoost credit 
 - Preprocessing: fitted preprocessing pipeline from the trained model
 - SHAP sample size: {sample_size:,} holdout rows
 - Feature grouping: one-hot encoded categorical features are grouped back to their original feature names
+
+## Built-In XGBoost Importance vs. SHAP
+
+Built-in XGBoost importance shows which transformed features the model uses heavily when building trees. It is fast and useful for a first-pass model inspection, but it can favor variables with many encoded categories.
+
+SHAP importance estimates the average contribution size of each feature to model predictions across sampled holdout rows. In this report, SHAP values are summarized using mean absolute SHAP value and then grouped back to original feature names for readability.
 
 ## Top SHAP Features
 
@@ -465,10 +514,19 @@ Built-in XGBoost importance provides a fast secondary view of which features are
 
 {xgboost_table}
 
+## Risk Driver Interpretation
+
+In this run, the strongest SHAP drivers include {top_shap_features}. The strongest built-in XGBoost importance drivers include {top_xgboost_features}.
+
+External source variables are important because they summarize third-party or externally derived credit-risk signals. In this dataset, these variables often provide strong risk-ranking information beyond a single income, loan amount, or demographic field.
+
+Affordability and credit burden ratios also matter because they describe the relationship between a requested loan and the applicant's financial capacity. Features such as credit-to-income, annuity-to-income, and loan-term ratios can help identify applicants whose repayment burden may be high relative to income or loan structure.
+
 ## Outputs
 
 - `reports/shap_feature_importance.csv`
 - `reports/xgboost_feature_importance.csv`
+- `reports/explainability_report.md`
 - `visuals/shap_feature_importance_xgboost.png`
 - `visuals/xgboost_feature_importance.png`
 
@@ -480,17 +538,16 @@ Built-in XGBoost importance provides a fast secondary view of which features are
 - Categorical variables are one-hot encoded before modeling and grouped back for readability.
 - The current model uses only `application_train.csv`, so it does not include bureau, previous application, or payment history tables.
 - Because default-class precision remains low, this model should support manual risk review rather than automatic rejection.
+- Features such as gender, family status, occupation, and education require careful governance and fairness analysis before any real lending use.
 """
 
     output_file.write_text(report)
 
 
-def main() -> None:
+def run_explainability(args: argparse.Namespace) -> None:
     """
     Run the explainability workflow.
     """
-    args = parse_args()
-
     if args.top_n <= 0:
         raise ValueError("top_n must be a positive integer.")
 
@@ -536,8 +593,16 @@ def main() -> None:
     )
 
     print("Saving explainability outputs...")
-    save_importance_csv(shap_importance_df, SHAP_IMPORTANCE_OUTPUT_PATH)
-    save_importance_csv(xgboost_importance_df, XGBOOST_IMPORTANCE_OUTPUT_PATH)
+    save_importance_csv(
+        shap_importance_df,
+        SHAP_IMPORTANCE_OUTPUT_PATH,
+        top_n=args.top_n
+    )
+    save_importance_csv(
+        xgboost_importance_df,
+        XGBOOST_IMPORTANCE_OUTPUT_PATH,
+        top_n=args.top_n
+    )
 
     save_importance_chart(
         importance_df=shap_importance_df,
@@ -570,6 +635,20 @@ def main() -> None:
     print(f"SHAP visual saved to: {SHAP_VISUAL_OUTPUT_PATH}")
     print(f"XGBoost visual saved to: {XGBOOST_VISUAL_OUTPUT_PATH}")
     print(f"Report saved to: {EXPLAINABILITY_REPORT_OUTPUT_PATH}")
+
+
+def main() -> None:
+    """
+    Parse arguments and run explainability with clean error messages.
+    """
+    args = parse_args()
+
+    try:
+        run_explainability(args)
+    except Exception as error:
+        print()
+        print(f"Explainability failed: {error}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
