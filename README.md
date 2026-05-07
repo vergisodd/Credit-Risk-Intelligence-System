@@ -193,169 +193,65 @@ Validation details are documented in [reports/validation_strategy.md](reports/va
 ```text
 Credit-Risk-Intelligence-System/
 │
-├── README.md
-├── LICENSE
-├── Makefile
-├── requirements.txt
-├── pyproject.toml
-├── Dockerfile
-├── .dockerignore
-├── .gitignore
+├── README.md                         Project overview, results, demo, and usage guide
+├── LICENSE                           MIT license
+├── Makefile                          Reproducible commands for training, testing, reports, and app launch
+├── requirements.txt                  Python dependencies
+├── pyproject.toml                    Ruff, Black, and pytest configuration
+├── config.yaml                       Central paths, artifact names, thresholds, and model settings
+├── Dockerfile                        Demo-mode Streamlit container
+├── .dockerignore                     Docker build exclusions
+├── .gitignore                        Git exclusions for data, models, cache files, and local artifacts
+├── .python-version                   Python version pin
 │
 ├── .github/
 │   └── workflows/
-│       └── ci.yml
+│       └── ci.yml                    GitHub Actions CI workflow
 │
-├── configs/
-│   └── config.yaml
+├── .devcontainer/                    Optional VS Code / GitHub Codespaces development container
 │
-├── credit_risk_intelligence/
-│   ├── __init__.py
-│   │
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── loader.py
-│   │
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── cleaning.py
-│   │   ├── loaders.py
-│   │   ├── validation.py
-│   │   └── splitting.py
-│   │
-│   ├── features/
-│   │   ├── __init__.py
-│   │   ├── application_features.py
-│   │   ├── bureau_features.py
-│   │   ├── relational_features.py
-│   │   └── feature_registry.py
-│   │
-│   ├── modeling/
-│   │   ├── __init__.py
-│   │   ├── preprocessing.py
-│   │   ├── common.py
-│   │   ├── train_logistic.py
-│   │   ├── train_xgboost.py
-│   │   ├── train_lightgbm.py
-│   │   ├── train_lightgbm_bureau.py
-│   │   ├── train_lightgbm_full_relational.py
-│   │   ├── champion.py
-│   │   └── artifacts.py
-│   │
-│   ├── evaluation/
-│   │   ├── __init__.py
-│   │   ├── metrics.py
-│   │   ├── model_comparison.py
-│   │   ├── threshold_policy.py
-│   │   ├── score_deciles.py
-│   │   ├── business_impact.py
-│   │   └── calibration.py
-│   │
-│   ├── explainability/
-│   │   ├── __init__.py
-│   │   ├── shap_analysis.py
-│   │   └── reason_codes.py
-│   │
-│   ├── governance/
-│   │   ├── __init__.py
-│   │   ├── fairness.py
-│   │   ├── drift.py
-│   │   └── validation_strategy.py
-│   │
-│   ├── reporting/
-│   │   ├── __init__.py
-│   │   ├── report_writers.py
-│   │   ├── plot_utils.py
-│   │   └── markdown_utils.py
-│   │
-│   └── utils/
-│       ├── __init__.py
-│       ├── paths.py
-│       └── logging.py
+├── .streamlit/                       Streamlit deployment/config files
 │
 ├── app/
-│   ├── streamlit_app.py
-│   ├── pages/
-│   │   ├── __init__.py
-│   │   ├── risk_dashboard.py
-│   │   ├── applicant_review.py
-│   │   ├── threshold_tool.py
-│   │   ├── score_deciles.py
-│   │   ├── business_impact.py
-│   │   ├── calibration.py
-│   │   ├── drift_monitoring.py
-│   │   ├── fairness.py
-│   │   ├── explainability.py
-│   │   └── model_documentation.py
-│   └── components/
-│       ├── __init__.py
-│       ├── charts.py
-│       ├── tables.py
-│       └── notices.py
+│   └── streamlit_app.py              Streamlit analyst console for demo and local interactive mode
 │
-├── scripts/
-│   ├── train_logistic.py
-│   ├── train_xgboost.py
-│   ├── train_lightgbm.py
-│   ├── train_champion.py
-│   ├── train_full_relational.py
-│   ├── evaluate_models.py
-│   ├── generate_explainability.py
-│   ├── generate_fairness_report.py
-│   ├── generate_score_deciles.py
-│   ├── generate_business_impact.py
-│   ├── generate_calibration_report.py
-│   └── generate_drift_report.py
+├── src/
+│   ├── config_loader.py              Config loading and path resolution
+│   ├── data_cleaning.py              Application data loading, cleaning, and schema checks
+│   ├── feature_engineering.py        Application-level feature engineering
+│   ├── feature_engineering_bureau.py Bureau aggregation features
+│   ├── feature_engineering_relational.py Optional relational-table feature engineering
+│   ├── model_utils.py                Shared preprocessing, training, evaluation, plotting, and artifact helpers
+│   ├── champion_model.py             Champion model registry and manifest helpers
+│   ├── threshold_optimizer.py        Threshold optimization and policy logic
+│   ├── train_model.py                Logistic regression baseline training
+│   ├── train_xgboost.py              XGBoost training workflow
+│   ├── train_lightgbm.py             Application-only LightGBM training workflow
+│   ├── train_lightgbm_bureau.py      Champion LightGBM+Bureau training workflow
+│   ├── train_lightgbm_full_relational.py Optional full-relational research workflow
+│   ├── evaluate_all.py               Model comparison, calibration, and threshold reporting
+│   ├── score_decile_analysis.py      Score decile and lift analysis
+│   ├── business_impact_simulation.py Review-routing policy simulation
+│   ├── calibration_report.py         Calibration diagnostics
+│   ├── drift_monitoring.py           Train-vs-holdout drift simulation
+│   ├── explain_model.py              SHAP explainability and reason-code generation
+│   └── fairness_analysis.py          Fairness and subgroup diagnostic reporting
+│
+├── tests/                            Unit tests for thresholds, features, fairness, champion logic, and reports
 │
 ├── data/
-│   ├── raw/
-│   │   └── .gitkeep
-│   ├── processed/
-│   │   └── .gitkeep
-│   └── README.md
+│   ├── raw/                          Local-only Kaggle raw data placeholder
+│   └── processed/                    Local-only processed data placeholder
 │
-├── models/
-│   └── .gitkeep
+├── models/                           Local-only trained model artifact placeholder
 │
-├── reports/
-│   ├── model_card.md
-│   ├── model_manifest.json
-│   ├── model_comparison.md
-│   ├── fairness_report.md
-│   ├── explainability_report.md
-│   ├── validation_strategy.md
-│   ├── score_decile_analysis.md
-│   ├── business_impact_simulation.md
-│   ├── calibration_report.md
-│   └── drift_report.md
+├── reports/                          Generated model cards, manifests, metrics, diagnostics, and business reports
 │
-├── visuals/
-│   ├── model_performance/
-│   ├── explainability/
-│   ├── fairness/
-│   ├── calibration/
-│   ├── drift/
-│   └── business/
+├── visuals/                          Generated charts for model performance, SHAP, fairness, calibration, drift, and business analysis
 │
-├── screenshots/
-│   └── applicant_risk_prediction.png
+├── screenshots/                      App screenshots used in README/demo
 │
-├── docs/
-│   ├── architecture.md
-│   ├── modeling_methodology.md
-│   ├── governance_notes.md
-│   ├── local_setup.md
-│   └── deployment_notes.md
-│
-└── tests/
-    ├── config/
-    ├── data/
-    ├── features/
-    ├── modeling/
-    ├── evaluation/
-    ├── explainability/
-    ├── governance/
-    └── app/
+└── notebooks/                        Exploratory notebooks with outputs stripped to reduce repo weight
 ```
 
 
