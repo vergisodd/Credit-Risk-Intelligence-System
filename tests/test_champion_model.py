@@ -24,6 +24,9 @@ def test_model_manifest_contains_governance_fields(config, synthetic_y_true, syn
         metrics={"roc_auc": 0.77, "average_precision": 0.26},
     )
     assert manifest["champion_model_name"] == "LightGBM+Bureau"
-    assert manifest["threshold_policy"]["cost_minimizing_threshold"] == result.cost_minimizing_threshold
+    assert (
+        manifest["threshold_policy"]["cost_minimizing_threshold"]
+        == result.cost_minimizing_threshold
+    )
     assert manifest["threshold_policy"]["f1_optimal_threshold"] == result.f1_optimal_threshold
     assert manifest["limitations"]

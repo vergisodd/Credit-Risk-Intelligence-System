@@ -63,19 +63,13 @@ def aggregate_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
 
     agg["BUREAU_LOAN_COUNT"] = grp["SK_ID_BUREAU"].count()
     agg["BUREAU_ACTIVE_LOAN_COUNT"] = (
-        bureau[bureau["CREDIT_ACTIVE"] == "Active"]
-        .groupby("SK_ID_CURR")["SK_ID_BUREAU"]
-        .count()
+        bureau[bureau["CREDIT_ACTIVE"] == "Active"].groupby("SK_ID_CURR")["SK_ID_BUREAU"].count()
     )
     agg["BUREAU_CLOSED_LOAN_COUNT"] = (
-        bureau[bureau["CREDIT_ACTIVE"] == "Closed"]
-        .groupby("SK_ID_CURR")["SK_ID_BUREAU"]
-        .count()
+        bureau[bureau["CREDIT_ACTIVE"] == "Closed"].groupby("SK_ID_CURR")["SK_ID_BUREAU"].count()
     )
     agg["BUREAU_PROLONGED_LOAN_COUNT"] = (
-        bureau[bureau["CNT_CREDIT_PROLONG"] > 0]
-        .groupby("SK_ID_CURR")["SK_ID_BUREAU"]
-        .count()
+        bureau[bureau["CNT_CREDIT_PROLONG"] > 0].groupby("SK_ID_CURR")["SK_ID_BUREAU"].count()
     )
 
     count_columns = [
@@ -108,7 +102,8 @@ def aggregate_bureau_features(bureau: pd.DataFrame) -> pd.DataFrame:
     )
 
     non_ratio_columns = [
-        column for column in BUREAU_FEATURES
+        column
+        for column in BUREAU_FEATURES
         if column not in {"BUREAU_ACTIVE_DEBT_RATIO", "BUREAU_CREDIT_ACTIVE_RATIO"}
     ]
     agg[non_ratio_columns] = agg[non_ratio_columns].fillna(0)

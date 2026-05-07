@@ -121,7 +121,8 @@ def show_image(section: str, key: str, command: str, caption: str | None = None)
 def style_best_values(df: pd.DataFrame):
     """Highlight best metric values in a model comparison table."""
     metric_columns = [
-        column for column in df.columns
+        column
+        for column in df.columns
         if column != "Model" and pd.api.types.is_numeric_dtype(df[column])
     ]
 
@@ -130,8 +131,7 @@ def style_best_values(df: pd.DataFrame):
             return ["" for _ in column]
         best = column.max()
         return [
-            "background-color: #14532D; color: #E8EDF2" if value == best else ""
-            for value in column
+            "background-color: #14532D; color: #E8EDF2" if value == best else "" for value in column
         ]
 
     return df.style.apply(highlight)
@@ -146,7 +146,8 @@ def build_sample_queue() -> pd.DataFrame | None:
     if "default_probability" in queue_df.columns:
         queue_df = queue_df.rename(columns={"default_probability": "score"})
     display_columns = [
-        column for column in [
+        column
+        for column in [
             "applicant_id",
             "score",
             "risk_tier",
@@ -173,7 +174,9 @@ def show_sample_queue(
         hide_index=True,
     )
     if show_distribution and "risk_tier" in queue_df.columns:
-        distribution = queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+        distribution = (
+            queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+        )
         st.bar_chart(distribution, x="risk_tier", y="count")
 
 
@@ -284,7 +287,9 @@ def risk_dashboard_page() -> None:
                 "score": y_proba,
             }
         )
-        queue_df["risk_tier"] = queue_df["score"].apply(lambda score: ui_risk_tier(score)[0].title())
+        queue_df["risk_tier"] = queue_df["score"].apply(
+            lambda score: ui_risk_tier(score)[0].title()
+        )
         queue_df["review_recommendation"] = queue_df["score"].apply(
             lambda score: review_recommendation(score, operating_threshold, CONFIG)
         )
@@ -300,7 +305,12 @@ def risk_dashboard_page() -> None:
             )
         with tier_col:
             st.subheader("Risk Tier Distribution")
-            distribution = queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+            distribution = (
+                queue_df["risk_tier"]
+                .value_counts()
+                .rename_axis("risk_tier")
+                .reset_index(name="count")
+            )
             st.bar_chart(distribution, x="risk_tier", y="count")
     else:
         demo_mode_notice()
@@ -311,14 +321,21 @@ def risk_dashboard_page() -> None:
                 show_sample_queue(sample_queue.head(20))
             with tier_col:
                 st.subheader("Sample Risk Tier Distribution")
-                distribution = sample_queue["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+                distribution = (
+                    sample_queue["risk_tier"]
+                    .value_counts()
+                    .rename_axis("risk_tier")
+                    .reset_index(name="count")
+                )
                 st.bar_chart(distribution, x="risk_tier", y="count")
 
     roc_col, pr_col = st.columns(2)
     with roc_col:
         show_image("visuals", "roc_comparison_all_models", "make evaluate", "ROC comparison")
     with pr_col:
-        show_image("visuals", "pr_comparison_all_models", "make evaluate", "Precision-Recall comparison")
+        show_image(
+            "visuals", "pr_comparison_all_models", "make evaluate", "Precision-Recall comparison"
+        )
 
     if comparison_df is not None:
         st.dataframe(style_best_values(comparison_df), width="stretch")
@@ -341,11 +358,20 @@ def applicant_prediction_page() -> None:
                 "Sample Applicant",
                 sample_queue["applicant_id"].astype(str).tolist(),
             )
-            selected = sample_queue.loc[sample_queue["applicant_id"].astype(str) == selected_id].iloc[0]
+            selected = sample_queue.loc[
+                sample_queue["applicant_id"].astype(str) == selected_id
+            ].iloc[0]
             probability = float(selected["score"])
-            operating_threshold = float(selected.get("operating_threshold", get_operating_threshold()))
+            operating_threshold = float(
+                selected.get("operating_threshold", get_operating_threshold())
+            )
             tier, _, _ = ui_risk_tier(probability)
-            action = str(selected.get("review_recommendation", review_recommendation(probability, operating_threshold, CONFIG)))
+            action = str(
+                selected.get(
+                    "review_recommendation",
+                    review_recommendation(probability, operating_threshold, CONFIG),
+                )
+            )
             display_verdict(probability)
             metric_col1, metric_col2, metric_col3 = st.columns(3)
             metric_col1.metric("Risk Score", f"{probability:.2%}")
@@ -397,7 +423,9 @@ def applicant_prediction_page() -> None:
         "AMT_GOODS_PRICE": st.sidebar.number_input("Goods Price ($)", value=450000, step=10000),
         "DAYS_BIRTH": -365.25 * st.sidebar.slider("Age (years)", 18, 75, 33),
         "DAYS_EMPLOYED": -365.25 * st.sidebar.slider("Employment Tenure (years)", 0, 45, 5),
-        "CNT_FAM_MEMBERS": st.sidebar.number_input("Family Members", min_value=1, max_value=10, value=2),
+        "CNT_FAM_MEMBERS": st.sidebar.number_input(
+            "Family Members", min_value=1, max_value=10, value=2
+        ),
         "EXT_SOURCE_1": st.sidebar.slider("EXT_SOURCE_1", 0.0, 1.0, 0.5),
         "EXT_SOURCE_2": st.sidebar.slider("EXT_SOURCE_2", 0.0, 1.0, 0.5),
         "EXT_SOURCE_3": st.sidebar.slider("EXT_SOURCE_3", 0.0, 1.0, 0.5),
@@ -427,8 +455,10 @@ def applicant_prediction_page() -> None:
         try:
             shap_path = configured_path("visuals", "shap_applicant_current")
             transformed_names = model.named_steps["preprocessor"].get_feature_names_out()
-            transformed_names = [str(name).split("__", maxsplit=1)[-1] for name in transformed_names]
-            top_features = generate_individual_explanation(model, aligned_row, transformed_names, shap_path)
+            transformed_names = [
+                str(name).split("__", maxsplit=1)[-1] for name in transformed_names
+            ]
+            generate_individual_explanation(model, aligned_row, transformed_names, shap_path)
             st.image(str(shap_path), width="stretch")
             reason_codes = generate_applicant_reason_codes(model, aligned_row)
             st.dataframe(reason_codes, width="stretch", hide_index=True)
@@ -465,7 +495,9 @@ def threshold_decision_page() -> None:
         demo_mode_notice()
         threshold_df = load_csv("reports", "cost_threshold_analysis", "make evaluate")
         if threshold_df is None or threshold_df.empty:
-            st.warning("Pre-generated threshold analysis is unavailable. Run `make evaluate` locally.")
+            st.warning(
+                "Pre-generated threshold analysis is unavailable. Run `make evaluate` locally."
+            )
             return
 
         threshold = st.slider(
@@ -490,8 +522,18 @@ def threshold_decision_page() -> None:
         )
 
         fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(threshold_df["threshold"], threshold_df["total_cost_A"], color="#1B4F8A", label="Lender cost")
-        ax.plot(threshold_df["threshold"], threshold_df["total_cost_B"], color="#B45309", label="Balanced cost")
+        ax.plot(
+            threshold_df["threshold"],
+            threshold_df["total_cost_A"],
+            color="#1B4F8A",
+            label="Lender cost",
+        )
+        ax.plot(
+            threshold_df["threshold"],
+            threshold_df["total_cost_B"],
+            color="#B45309",
+            label="Balanced cost",
+        )
         ax.axvline(threshold, color="#111827", linestyle="--", label="Selected threshold")
         ax.set_xlabel("Threshold")
         ax.set_ylabel("Total Relative Cost")
@@ -548,11 +590,17 @@ def threshold_decision_page() -> None:
 
     threshold_rows = []
     for candidate in np.round(
-        np.arange(CONFIG["thresholds"]["min"], CONFIG["thresholds"]["max"] + CONFIG["thresholds"]["step"], CONFIG["thresholds"]["step"]),
+        np.arange(
+            CONFIG["thresholds"]["min"],
+            CONFIG["thresholds"]["max"] + CONFIG["thresholds"]["step"],
+            CONFIG["thresholds"]["step"],
+        ),
         2,
     ):
         candidate_pred = (y_proba >= candidate).astype(int)
-        candidate_tn, candidate_fp, candidate_fn, candidate_tp = confusion_matrix(y_test, candidate_pred).ravel()
+        candidate_tn, candidate_fp, candidate_fn, candidate_tp = confusion_matrix(
+            y_test, candidate_pred
+        ).ravel()
         threshold_rows.append(
             {
                 "threshold": candidate,
@@ -583,6 +631,69 @@ def threshold_decision_page() -> None:
     st.pyplot(fig)
 
 
+def score_decile_page() -> None:
+    """Score Decile and Lift page."""
+    st.title("Score Decile and Lift")
+    decile_df = load_csv("reports", "score_decile_analysis_csv", "make score-deciles")
+    if decile_df is not None:
+        st.dataframe(decile_df, width="stretch", hide_index=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        show_image("visuals", "score_decile_lift", "make score-deciles")
+    with col2:
+        show_image("visuals", "cumulative_default_capture", "make score-deciles")
+
+    report = load_text("reports", "score_decile_analysis_md", "make score-deciles")
+    if report:
+        st.markdown(report)
+
+
+def business_impact_page() -> None:
+    """Business Impact page."""
+    st.title("Business Impact Simulation")
+    policy_df = load_csv("reports", "business_impact_simulation_csv", "make business-impact")
+    if policy_df is not None:
+        st.dataframe(policy_df, width="stretch", hide_index=True)
+    show_image(
+        "visuals",
+        "business_impact_policy_comparison",
+        "make business-impact",
+    )
+    report = load_text("reports", "business_impact_simulation_md", "make business-impact")
+    if report:
+        st.markdown(report)
+
+
+def calibration_page() -> None:
+    """Calibration page."""
+    st.title("Calibration")
+    decile_df = load_csv("reports", "calibration_by_decile_csv", "make calibration")
+    tier_df = load_csv("reports", "calibration_by_risk_tier_csv", "make calibration")
+    if decile_df is not None:
+        st.subheader("Calibration by Decile")
+        st.dataframe(decile_df, width="stretch", hide_index=True)
+    if tier_df is not None:
+        st.subheader("Calibration by Risk Tier")
+        st.dataframe(tier_df, width="stretch", hide_index=True)
+    show_image("visuals", "calibration_by_decile", "make calibration")
+    report = load_text("reports", "calibration_report_md", "make calibration")
+    if report:
+        st.markdown(report)
+
+
+def monitoring_drift_page() -> None:
+    """Monitoring and Drift page."""
+    st.title("Monitoring and Drift Simulation")
+    drift_df = load_csv("reports", "drift_report_csv", "make drift")
+    if drift_df is not None:
+        st.dataframe(drift_df, width="stretch", hide_index=True)
+    show_image("visuals", "psi_drift_report", "make drift")
+    report = load_text("reports", "drift_report_md", "make drift")
+    if report:
+        st.markdown(report)
+
+
 def fairness_page() -> None:
     """Fairness Analysis page."""
     st.title("Fairness Analysis")
@@ -594,9 +705,12 @@ def fairness_page() -> None:
             gap = gender_df["equalized_odds_gap"].max()
             styled = gender_df.style.apply(
                 lambda row: [
-                    "background-color: #7F1D1D; color: #E8EDF2"
-                    if column in ["false_positive_rate", "false_negative_rate"] and gap > CONFIG["fairness"]["disparity_threshold"]
-                    else ""
+                    (
+                        "background-color: #7F1D1D; color: #E8EDF2"
+                        if column in ["false_positive_rate", "false_negative_rate"]
+                        and gap > CONFIG["fairness"]["disparity_threshold"]
+                        else ""
+                    )
                     for column in row.index
                 ],
                 axis=1,
@@ -646,6 +760,9 @@ def model_documentation_page() -> None:
         ("model_manifest", "Champion Model Manifest"),
         ("model_card", "Model Card"),
         ("business_recommendations", "Business Recommendations"),
+        ("validation_strategy", "Validation Strategy"),
+        ("calibration_report_md", "Calibration Report"),
+        ("drift_report_md", "Drift Report"),
         ("explainability_report", "Explainability Report"),
         ("fairness_report_md", "Fairness Report"),
     ]
@@ -669,6 +786,10 @@ def main() -> None:
         "Risk Dashboard": risk_dashboard_page,
         "Applicant Risk Prediction": applicant_prediction_page,
         "Threshold Decision Tool": threshold_decision_page,
+        "Score Decile / Lift": score_decile_page,
+        "Business Impact": business_impact_page,
+        "Calibration": calibration_page,
+        "Monitoring / Drift": monitoring_drift_page,
         "Fairness Analysis": fairness_page,
         "Explainability": explainability_page,
         "Model Documentation": model_documentation_page,

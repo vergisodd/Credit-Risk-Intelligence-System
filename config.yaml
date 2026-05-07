@@ -1,6 +1,11 @@
 paths:
   raw_data: "data/raw/application_train.csv"
   bureau_data: "data/raw/bureau.csv"
+  previous_application_data: "data/raw/previous_application.csv"
+  installments_payments_data: "data/raw/installments_payments.csv"
+  pos_cash_balance_data: "data/raw/POS_CASH_balance.csv"
+  credit_card_balance_data: "data/raw/credit_card_balance.csv"
+  bureau_balance_data: "data/raw/bureau_balance.csv"
   processed_data: "data/processed/"
   models_dir: "models/"
   reports_dir: "reports/"
@@ -11,6 +16,7 @@ artifacts:
   xgboost_model: "models/xgboost_credit_risk_model.joblib"
   lightgbm_model: "models/lightgbm_pipeline.pkl"
   lightgbm_bureau_model: "models/lightgbm_bureau_pipeline.pkl"
+  lightgbm_full_relational_model: "models/lightgbm_full_relational_pipeline.pkl"
 
 champion:
   model_name: "LightGBM+Bureau"
@@ -27,7 +33,7 @@ champion:
     split: "Stratified 80/20 holdout using model.random_state"
   limitations:
     - "Portfolio demonstration only; not production-ready and not for automated credit decisions."
-    - "Uses application_train.csv plus bureau.csv only; remaining relational tables are not integrated."
+    - "The configured champion uses application_train.csv plus bureau.csv; deeper relational features are optional research workflows and are not automatically promoted."
     - "Scores are review-prioritization estimates, not calibrated approval or denial decisions."
     - "Sensitive and proxy variables require legal, compliance, and model-risk review before regulated use."
 
@@ -41,6 +47,8 @@ reports:
   lightgbm_threshold_analysis: "reports/lgbm_threshold_analysis.csv"
   lightgbm_bureau_metrics: "reports/lgbm_bureau_model_metrics.json"
   lgbm_bureau_threshold_analysis: "reports/lgbm_bureau_threshold_analysis.csv"
+  lightgbm_full_relational_metrics: "reports/lgbm_full_relational_model_metrics.json"
+  lgbm_full_relational_threshold_analysis: "reports/lgbm_full_relational_threshold_analysis.csv"
   model_comparison_full: "reports/model_comparison_full.csv"
   model_comparison_md: "reports/model_comparison.md"
   model_card: "reports/model_card.md"
@@ -54,6 +62,16 @@ reports:
   cost_threshold_analysis: "reports/cost_threshold_analysis.csv"
   sample_predictions: "reports/sample_predictions.csv"
   model_manifest: "reports/model_manifest.json"
+  score_decile_analysis_csv: "reports/score_decile_analysis.csv"
+  score_decile_analysis_md: "reports/score_decile_analysis.md"
+  business_impact_simulation_csv: "reports/business_impact_simulation.csv"
+  business_impact_simulation_md: "reports/business_impact_simulation.md"
+  calibration_report_md: "reports/calibration_report.md"
+  calibration_by_decile_csv: "reports/calibration_by_decile.csv"
+  calibration_by_risk_tier_csv: "reports/calibration_by_risk_tier.csv"
+  drift_report_csv: "reports/drift_report.csv"
+  drift_report_md: "reports/drift_report.md"
+  validation_strategy: "reports/validation_strategy.md"
 
 visuals:
   roc_lr: "visuals/roc_curve_logistic_regression.png"
@@ -80,6 +98,11 @@ visuals:
   cost_threshold_analysis: "visuals/cost_threshold_analysis.png"
   fairness_fpr_fnr_gender: "visuals/fairness_fpr_fnr_gender.png"
   fairness_auc_education: "visuals/fairness_auc_education.png"
+  score_decile_lift: "visuals/score_decile_lift.png"
+  cumulative_default_capture: "visuals/cumulative_default_capture.png"
+  business_impact_policy_comparison: "visuals/business_impact_policy_comparison.png"
+  calibration_by_decile: "visuals/calibration_by_decile.png"
+  psi_drift_report: "visuals/psi_drift_report.png"
 
 model:
   random_state: 42

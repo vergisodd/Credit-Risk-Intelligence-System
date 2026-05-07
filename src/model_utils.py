@@ -138,6 +138,71 @@ def load_engineered_data_with_bureau(
         return X, y
 
 
+def load_engineered_data_with_full_relational(
+    validate_schema: bool = True,
+    require_relational_features: bool = True,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Load application, bureau, and optional relational table aggregations.
+
+    The full-relational workflow requires bureau.csv and, by default, at least
+    one additional Home Credit relational table. This prevents an accidentally
+    missing local data directory from being reported as a deeper relational model.
+    """
+    X, y, _ = load_and_clean(validate_schema=validate_schema)
+    X = add_all_features(X)
+
+    config = load_config()
+    raw_path = resolve_path(config["paths"]["raw_data"])
+    sk_ids = pd.read_csv(raw_path, usecols=["SK_ID_CURR"])["SK_ID_CURR"].reset_index(drop=True)
+    X_with_id = X.copy()
+    X_with_id["SK_ID_CURR"] = sk_ids.values
+
+    from src.feature_engineering_bureau import BUREAU_FEATURES, load_bureau_features
+    from src.feature_engineering_relational import load_relational_features
+
+    bureau_agg = load_bureau_features()
+    X_joined = X_with_id.merge(bureau_agg, on="SK_ID_CURR", how="left")
+    X_joined[BUREAU_FEATURES] = X_joined[BUREAU_FEATURES].fillna(0)
+
+    relational_agg = load_relational_features(config)
+    if relational_agg.empty:
+        if require_relational_features:
+            configured_paths = [
+                config["paths"]["previous_application_data"],
+                config["paths"]["installments_payments_data"],
+                config["paths"]["pos_cash_balance_data"],
+                config["paths"]["credit_card_balance_data"],
+                config["paths"]["bureau_balance_data"],
+            ]
+            raise FileNotFoundError(
+                "No optional Home Credit relational tables were found for full-relational "
+                "training. Add at least one of these files before running `make train-lgbm-full`: "
+                + ", ".join(configured_paths)
+            )
+    else:
+        relational_columns = [column for column in relational_agg.columns if column != "SK_ID_CURR"]
+        X_joined = X_joined.merge(relational_agg, on="SK_ID_CURR", how="left")
+        zero_fill_columns = [
+            column
+            for column in relational_columns
+            if (
+                "_count" in column
+                or "_rate" in column
+                or "_total_" in column
+                or "_status_" in column
+            )
+        ]
+        X_joined[zero_fill_columns] = X_joined[zero_fill_columns].fillna(0)
+        LOGGER.info(
+            "Relational features joined. Shape: %s (added %s columns)",
+            X_joined.shape,
+            len(relational_columns),
+        )
+
+    return X_joined.drop(columns=["SK_ID_CURR"]), y
+
+
 def make_train_test_split(
     X: pd.DataFrame,
     y: pd.Series,

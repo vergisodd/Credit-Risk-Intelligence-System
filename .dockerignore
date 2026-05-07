@@ -1,0 +1,13 @@
+.git
+__pycache__
+.pytest_cache
+.venv
+venv
+data/raw
+models
+*.pkl
+*.joblib
+*.pyc
+.DS_Store
+notebooks/.ipynb_checkpoints
+visuals/shap_applicant_current.png

@@ -82,9 +82,7 @@ def add_income_per_family_member(df: pd.DataFrame) -> pd.DataFrame:
     """Add income normalized by family member count."""
     if {"AMT_INCOME_TOTAL", "CNT_FAM_MEMBERS"}.issubset(df.columns):
         LOGGER.info("Adding INCOME_PER_FAMILY_MEMBER")
-        df["INCOME_PER_FAMILY_MEMBER"] = safe_divide(
-            df["AMT_INCOME_TOTAL"], df["CNT_FAM_MEMBERS"]
-        )
+        df["INCOME_PER_FAMILY_MEMBER"] = safe_divide(df["AMT_INCOME_TOTAL"], df["CNT_FAM_MEMBERS"])
     return df
 
 
@@ -108,7 +106,8 @@ def add_employment_features(df: pd.DataFrame) -> pd.DataFrame:
 def add_external_source_features(df: pd.DataFrame) -> pd.DataFrame:
     """Add aggregate and interaction features from external source scores."""
     ext_source_columns = [
-        column for column in ["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]
+        column
+        for column in ["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]
         if column in df.columns
     ]
     if ext_source_columns:

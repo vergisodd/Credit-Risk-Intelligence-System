@@ -12,7 +12,9 @@ from sklearn.pipeline import Pipeline
 from src.model_utils import build_preprocessor
 
 
-def build_lightgbm_params(config: dict, scale_pos_weight: float, overrides: dict | None = None) -> dict:
+def build_lightgbm_params(
+    config: dict, scale_pos_weight: float, overrides: dict | None = None
+) -> dict:
     """Create LightGBM model parameters from config and optional Optuna overrides."""
     params = {
         **config["lightgbm"],

@@ -65,9 +65,7 @@ def summarize_results(metrics: dict) -> None:
                 "Model": "Logistic Regression",
                 "AUC-ROC": metrics["roc_auc"],
                 "Average Precision": metrics["average_precision"],
-                "Precision": metrics["default_threshold_metrics"][
-                    "precision_default_class"
-                ],
+                "Precision": metrics["default_threshold_metrics"]["precision_default_class"],
                 "Recall": metrics["default_threshold_metrics"]["recall_default_class"],
                 "F1": metrics["default_threshold_metrics"]["f1_default_class"],
             }

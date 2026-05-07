@@ -22,7 +22,12 @@ from src.champion_model import (
     resolve_selected_threshold,
 )
 from src.config_loader import ensure_parent_dir, load_config
-from src.model_utils import calculate_scale_pos_weight, get_feature_type_lists, make_train_test_split, save_dataframe
+from src.model_utils import (
+    calculate_scale_pos_weight,
+    get_feature_type_lists,
+    make_train_test_split,
+    save_dataframe,
+)
 from src.threshold_optimizer import find_optimal_threshold
 from src.train_lightgbm import build_lightgbm_pipeline
 
@@ -101,7 +106,8 @@ def disaggregated_metrics(
     result = pd.DataFrame(rows)
     if not result.empty:
         gap = (
-            result["false_positive_rate"].max() - result["false_positive_rate"].min()
+            result["false_positive_rate"].max()
+            - result["false_positive_rate"].min()
             + result["false_negative_rate"].max()
             - result["false_negative_rate"].min()
         )
@@ -138,7 +144,9 @@ def train_without_gender(
     return float(no_gender_auc), float(full_auc - no_gender_auc)
 
 
-def save_fairness_visuals(gender_df: pd.DataFrame, education_df: pd.DataFrame, config: dict) -> None:
+def save_fairness_visuals(
+    gender_df: pd.DataFrame, education_df: pd.DataFrame, config: dict
+) -> None:
     """Save fairness charts."""
     gender_output = ensure_parent_dir(config["visuals"]["fairness_fpr_fnr_gender"])
     plot_gender = gender_df.set_index("group")[["false_positive_rate", "false_negative_rate"]]
@@ -176,7 +184,9 @@ def dataframe_to_markdown(df: pd.DataFrame, columns: list[str]) -> str:
     """Render a compact Markdown table without optional dependencies."""
     display = df[columns].copy()
     for column in display.select_dtypes(include=["float"]).columns:
-        display[column] = display[column].map(lambda value: "" if pd.isna(value) else f"{value:.4f}")
+        display[column] = display[column].map(
+            lambda value: "" if pd.isna(value) else f"{value:.4f}"
+        )
     lines = [
         "| " + " | ".join(columns) + " |",
         "| " + " | ".join(["---"] * len(columns)) + " |",
@@ -291,7 +301,9 @@ def main() -> None:
     results = pd.concat([frame for frame in result_frames if not frame.empty], ignore_index=True)
 
     print("Training no-gender comparison model...")
-    no_gender_auc, auc_degradation = train_without_gender(model, X_train, y_train, X_test, y_test, config)
+    no_gender_auc, auc_degradation = train_without_gender(
+        model, X_train, y_train, X_test, y_test, config
+    )
 
     results["operating_threshold"] = operating_threshold
     results["threshold_policy"] = threshold_label
@@ -302,7 +314,9 @@ def main() -> None:
 
     print("Saving fairness reports and visuals...")
     save_dataframe(results, config["reports"]["fairness_report_csv"])
-    save_fairness_report(results, no_gender_auc, auc_degradation, operating_threshold, threshold_label, config)
+    save_fairness_report(
+        results, no_gender_auc, auc_degradation, operating_threshold, threshold_label, config
+    )
     gender_df = results[results["attribute"] == GENDER_COLUMN].copy()
     education_df = results[results["attribute"] == EDUCATION_COLUMN].copy()
     save_fairness_visuals(gender_df, education_df, config)

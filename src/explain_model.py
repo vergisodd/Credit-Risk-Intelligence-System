@@ -144,12 +144,16 @@ def normalize_base_value(base_value: Any) -> float:
     return float(base_array.reshape(-1)[-1])
 
 
-def calculate_shap_values(model_pipeline: Pipeline, X_sample: pd.DataFrame) -> tuple[np.ndarray, float, np.ndarray, pd.DataFrame]:
+def calculate_shap_values(
+    model_pipeline: Pipeline, X_sample: pd.DataFrame
+) -> tuple[np.ndarray, float, np.ndarray, pd.DataFrame]:
     """Transform sample rows and calculate SHAP values for the model step."""
     try:
         import shap
     except ImportError as error:
-        raise RuntimeError("SHAP is not installed. Install dependencies before explaining models.") from error
+        raise RuntimeError(
+            "SHAP is not installed. Install dependencies before explaining models."
+        ) from error
 
     preprocessor = model_pipeline.named_steps["preprocessor"]
     estimator = model_pipeline.named_steps["model"]
@@ -267,7 +271,9 @@ def generate_applicant_reason_codes(
     try:
         import shap
     except ImportError as error:
-        raise RuntimeError("SHAP is not installed. Install dependencies before explaining applicants.") from error
+        raise RuntimeError(
+            "SHAP is not installed. Install dependencies before explaining applicants."
+        ) from error
 
     preprocessor = pipeline.named_steps["preprocessor"]
     estimator = pipeline.named_steps["model"]
@@ -326,7 +332,9 @@ def generate_individual_explanation(
     try:
         import shap
     except ImportError as error:
-        raise RuntimeError("SHAP is not installed. Install dependencies before explaining applicants.") from error
+        raise RuntimeError(
+            "SHAP is not installed. Install dependencies before explaining applicants."
+        ) from error
 
     preprocessor = pipeline.named_steps["preprocessor"]
     estimator = pipeline.named_steps["model"]
@@ -343,7 +351,9 @@ def generate_individual_explanation(
         feature_names=transformed_feature_names,
     )
     output_file = ensure_parent_dir(output_path)
-    shap.plots.waterfall(explanation, max_display=load_config()["shap"]["waterfall_max_display"], show=False)
+    shap.plots.waterfall(
+        explanation, max_display=load_config()["shap"]["waterfall_max_display"], show=False
+    )
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close()
@@ -362,7 +372,9 @@ def generate_individual_explanation(
     return top_features
 
 
-def select_example_row(X_test: pd.DataFrame, probabilities: np.ndarray, lower: float | None, upper: float | None) -> pd.DataFrame:
+def select_example_row(
+    X_test: pd.DataFrame, probabilities: np.ndarray, lower: float | None, upper: float | None
+) -> pd.DataFrame:
     """Select one holdout row matching a probability range, with nearest fallback."""
     mask = np.ones(len(probabilities), dtype=bool)
     if lower is not None:
@@ -422,16 +434,24 @@ def run_explainability(args: argparse.Namespace) -> None:
     examples = config["shap"]["individual_examples"]
     example_specs = [
         (None, examples["low_max"], config["visuals"]["shap_individual_low_risk"]),
-        (examples["medium_min"], examples["medium_max"], config["visuals"]["shap_individual_medium_risk"]),
+        (
+            examples["medium_min"],
+            examples["medium_max"],
+            config["visuals"]["shap_individual_medium_risk"],
+        ),
         (examples["high_min"], None, config["visuals"]["shap_individual_high_risk"]),
     ]
     reason_code_frames = []
     for label, (lower, upper, output_path) in zip(["low", "medium", "high"], example_specs):
         X_row = select_example_row(X_test, probabilities, lower, upper)
-        generate_individual_explanation(model_pipeline, X_row, transformed_names, resolve_path(output_path))
+        generate_individual_explanation(
+            model_pipeline, X_row, transformed_names, resolve_path(output_path)
+        )
         reason_codes = generate_applicant_reason_codes(model_pipeline, X_row)
         reason_codes.insert(0, "example_risk_band", label)
-        reason_codes.insert(1, "predicted_default_probability", float(model_pipeline.predict_proba(X_row)[:, 1][0]))
+        reason_codes.insert(
+            1, "predicted_default_probability", float(model_pipeline.predict_proba(X_row)[:, 1][0])
+        )
         reason_code_frames.append(reason_codes)
     save_dataframe(
         pd.concat(reason_code_frames, ignore_index=True),
