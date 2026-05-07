@@ -3,6 +3,7 @@
 Credit risk review-prioritization system for the Home Credit Default Risk dataset, with a governed **LightGBM+Bureau** champion model, explicit threshold policy, SHAP reason codes, fairness diagnostics, and a Streamlit analyst console.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red) ![License](https://img.shields.io/badge/License-MIT-green)
+![CI](https://github.com/vergisodd/Credit-Risk-Intelligence-System/actions/workflows/ci.yml/badge.svg)
 
 [Live Demo](https://credit-risk-intelligence-system.streamlit.app)  
 The hosted Streamlit app is a **public demo mode** using committed reports, visuals, sample predictions, and reason codes. To use the fully interactive dashboard with custom applicant inputs and live champion-model scoring, run the project locally with the Kaggle data and trained model artifact.
