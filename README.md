@@ -4,7 +4,7 @@ Credit risk review-prioritization system for the Home Credit Default Risk datase
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red) ![License](https://img.shields.io/badge/License-MIT-green)
 
-[Live Demo](https://credit-risk-intelligence.streamlit.app)
+[Live Demo](https://credit-risk-intelligence-system.streamlit.app)
 
 ![Applicant Review Console](screenshots/applicant_risk_prediction.png)
 
@@ -27,7 +27,7 @@ Average Precision is reported against an 8.07% default base rate, so the lift is
 
 ## Analyst Console
 
-The Streamlit app is structured like a credit risk review tool:
+The Streamlit app is structured like a credit risk review tool. The public cloud deployment runs in demo mode using committed reports, visuals, sample predictions, and reason codes because raw Kaggle files and trained model binaries are intentionally not committed. Full live scoring works locally after training the champion model.
 
 - Champion model label and model-manifest view
 - Applicant review queue sorted by risk score
