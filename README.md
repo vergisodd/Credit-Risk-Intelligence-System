@@ -9,6 +9,26 @@ The hosted Streamlit app is a **public demo mode** using committed reports, visu
 
 ![Applicant Review Console](screenshots/applicant_risk_prediction.png)
 
+
+## System Workflow
+
+```text
+Raw Kaggle Data
+      ↓
+Cleaning + Feature Engineering
+      ↓
+Application + Bureau Feature Set
+      ↓
+Model Training + Comparison
+      ↓
+Champion Model Registry
+      ↓
+Threshold Policy + Fairness Diagnostics + SHAP
+      ↓
+Streamlit Analyst Console
+```
+---
+
 ## Champion Result
 
 | Champion | Feature Set | ROC-AUC | Average Precision | Base Rate | Operating Threshold |
