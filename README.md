@@ -140,6 +140,19 @@ reports/                 Model card, manifest, fairness, explainability, compari
 tests/                   Unit tests for feature, threshold, fairness, and champion logic
 ```
 
+
+## Key Skills Demonstrated
+
+- Machine learning pipeline design with Logistic Regression, XGBoost, and LightGBM
+- Feature engineering from relational credit bureau data
+- Imbalanced classification evaluation using ROC-AUC, Average Precision, recall, precision, and F1
+- Threshold optimization for review-prioritization decisions
+- SHAP explainability and applicant-level reason codes
+- Fairness diagnostics across sensitive and proxy attributes
+- Streamlit dashboard development for analyst workflows
+- Reproducible project structure with Makefile commands and unit tests
+
+
 ## Limitations
 
 This is an applied ML portfolio project, not a production lending system. It lacks temporal validation, full relational-table integration, drift monitoring, adverse-action governance, and formal legal compliance review. Scores should be used only to prioritize manual review in this demonstration.
