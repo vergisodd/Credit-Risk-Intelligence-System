@@ -4,7 +4,8 @@ Credit risk review-prioritization system for the Home Credit Default Risk datase
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red) ![License](https://img.shields.io/badge/License-MIT-green)
 
-[Live Demo](https://credit-risk-intelligence-system.streamlit.app)
+[Live Demo](https://credit-risk-intelligence-system.streamlit.app)  
+The hosted Streamlit app is a **public demo mode** using committed reports, visuals, sample predictions, and reason codes. To use the fully interactive dashboard with custom applicant inputs and live champion-model scoring, run the project locally with the Kaggle data and trained model artifact.
 
 ![Applicant Review Console](screenshots/applicant_risk_prediction.png)
 
@@ -27,7 +28,9 @@ Average Precision is reported against an 8.07% default base rate, so the lift is
 
 ## Analyst Console
 
-The Streamlit app is structured like a credit risk review tool. The public cloud deployment runs in demo mode using committed reports, visuals, sample predictions, and reason codes because raw Kaggle files and trained model binaries are intentionally not committed. Full live scoring works locally after training the champion model.
+The Streamlit app is structured like a credit risk review tool. The public cloud deployment runs in demo mode because raw Kaggle files and trained model binaries are intentionally not committed. It shows the review workflow using committed outputs, but it does not perform live model scoring.
+
+For the actual interactive version, run locally after placing the Kaggle files in `data/raw/` and training the champion model. Local mode enables custom applicant input changes, live risk scoring, applicant-level SHAP, and threshold simulation from holdout scores.
 
 - Champion model label and model-manifest view
 - Applicant review queue sorted by risk score
@@ -40,6 +43,11 @@ The Streamlit app is structured like a credit risk review tool. The public cloud
 Run locally:
 
 ```bash
+pip install -r requirements.txt
+make train-lgbm-bureau
+make evaluate
+make explain
+make fairness
 streamlit run app/streamlit_app.py
 ```
 
