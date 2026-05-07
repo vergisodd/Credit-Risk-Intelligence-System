@@ -16,7 +16,7 @@ It is designed as a **decision-support system for credit risk analysts**, not as
 The hosted Streamlit app runs in **public demo mode** using committed reports, visuals, sample predictions, and reason codes.  
 Full live scoring requires running the project locally with the Kaggle data and trained model artifacts.
 
-![Applicant Review Console](screenshots/applicant_risk_prediction.png)
+![Applicant Review Console](screenshots/Demo.gif)
 
 ---
 
