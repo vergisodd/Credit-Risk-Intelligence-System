@@ -48,7 +48,9 @@ Raw Kaggle Data
       ↓
 Cleaning + Feature Engineering
       ↓
-Application + Bureau + Relational Feature Sets
+Application + Bureau Champion Model
+      ↓
+Optional Full-Relational Research Features
       ↓
 Model Training + Comparison
       ↓
