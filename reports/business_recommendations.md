@@ -1,32 +1,37 @@
-# Business Recommendations — Credit Risk Screening System
+# Business Recommendations - Credit Risk Screening System
 
 ## Executive Summary
 
-At the lender-cost-optimal threshold of 0.50, this model captures 68.8% of future payment-difficulty cases while routing 31.7% of the applicant pool to manual review. The most important intervention is to use the score as a documented review-prioritization queue rather than an automatic approval or denial rule. The most important limitation is that default-class precision remains low, so review capacity and fairness monitoring matter as much as raw AUC.
+Use the champion **LightGBM+Bureau** model as a manual-review prioritization tool, not an automatic lending decision engine. The model ranks applicants materially better than the base-rate benchmark, but default-class precision remains low because defaults are rare. Review capacity, threshold selection, calibration, and fairness monitoring matter as much as ROC-AUC.
 
 ## Operating Threshold Recommendations
 
-| Objective | Threshold | Recall | Precision | Est. Review Volume (per 10K) | Est. Missed Defaults (per 10K) |
-|---|---:|---:|---:|---:|---:|
-| Maximize default capture (fn_cost=10) | 0.50 | 0.688 | 0.175 | 3,166 | 252 |
-| Balanced review burden (fn_cost=3, fp_cost=3) | 0.91 | 0.026 | 0.566 | 37 | 786 |
-| Precision-focused review (fp_cost=3) | 0.95 | 0.002 | 0.647 | 3 | 805 |
-| F1-optimal | 0.66 | 0.444 | 0.253 | 1,415 | 449 |
+| Policy Concept | Threshold | Purpose | Operational Meaning |
+|---|---:|---|---|
+| Default classifier threshold | 0.50 | Conventional ML cutoff | Useful for benchmark metrics; not automatically the best business policy |
+| Lender cost-minimizing threshold | 0.53 | Minimize FN cost weighted 10x FP cost | Captures more defaults but routes a large queue to review |
+| F1-optimal threshold | 0.66 | Balance default precision and recall | Configured operating threshold for portfolio review prioritization |
+| Risk-tier thresholds | 0.30 / 0.59 | Analyst triage bands | Low/medium/high queue labels, not binary decision rules |
 
-## Priority Risk Segments
+At threshold 0.50, the bundled champion metrics show recall of 68.1% and precision of 17.8%. That means the model is valuable for ranking and triage, but every flagged applicant still needs human review and policy context.
 
-High Risk applicants tend to combine weak external-source risk signals with heavier repayment structures, including higher annuity burden and less favorable credit-term ratios. The SHAP analysis also shows that education category and `CODE_GENDER` influence model behavior, which means the highest-risk queue should be reviewed alongside subgroup error rates rather than treated as a purely financial ranking. In practical terms, the risk team should use the top tier to prioritize analyst attention on affordability stress and external-score weakness while documenting any sensitive-attribute governance concerns.
+## Review Queue Policy
 
-## Fairness Implications for Policy
+Risk teams should sort applicants by score descending, then apply a capacity-aware review policy. If analyst capacity is constrained, review the highest-scoring applicants first rather than treating all scores above a static threshold as equally urgent.
 
-The model shows a 0.2371 Equalized Odds gap between male and female applicants. Operationally, male applicants face a false positive rate of 16.7% while female applicants face 8.9%, meaning male applicants are approximately 88% more likely to be routed to manual review even when they would not default. Any threshold choice should therefore be reviewed with a fairness lens before deployment, especially if review routing creates customer friction or downstream denial risk.
+The Streamlit app now exposes both a threshold slider and a review-capacity tool so stakeholders can see the tradeoff among review volume, missed defaults, precision, recall, false positives, and false negatives.
+
+## Fairness and Governance
+
+`CODE_GENDER`, `NAME_EDUCATION_TYPE`, and `ORGANIZATION_TYPE` are retained in this portfolio experiment so their influence can be measured transparently. A regulated lender would need legal, compliance, and model-risk approval before using sensitive or proxy attributes. Removing protected attributes does not eliminate proxy bias, so subgroup diagnostics should continue even after feature changes.
 
 ## What This System Cannot Do
 
-This system cannot make automatic credit decisions, cannot replace human judgment on edge cases, and cannot be deployed in a regulated lending workflow without legal, compliance, and model-risk review. Its appropriate role is to rank applications for manual review and to make the tradeoffs of that ranking visible to risk leadership.
+This system cannot approve or reject loans, cannot replace human judgment, and cannot be considered production-ready. Its appropriate role is to demonstrate a governed analytics workflow for manual review prioritization.
 
 ## Recommended Next Investments
 
-1. Integrate remaining relational tables to close the AUC gap.
-2. Add return_reason or application outcome feedback to improve recall for specific default patterns.
-3. Implement drift monitoring to track model performance across applicant cohorts over time.
+1. Integrate the remaining Home Credit relational tables for stronger credit-history signal.
+2. Add probability calibration and calibration monitoring before treating scores as probability estimates.
+3. Add drift monitoring and periodic subgroup performance review.
+4. Document any future fairness mitigation separately from diagnostic reporting.

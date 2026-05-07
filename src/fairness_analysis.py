@@ -1,4 +1,4 @@
-"""Fairness analysis for the LightGBM credit risk model."""
+"""Fairness diagnostics for the configured champion credit risk model."""
 
 from __future__ import annotations
 
@@ -15,14 +15,21 @@ import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.metrics import average_precision_score, confusion_matrix, roc_auc_score
 
+from src.champion_model import (
+    get_champion_spec,
+    load_champion_model,
+    load_champion_feature_data,
+    resolve_selected_threshold,
+)
 from src.config_loader import ensure_parent_dir, load_config
-from src.model_utils import calculate_scale_pos_weight, get_feature_type_lists, load_engineered_data, load_model_artifact, make_train_test_split, save_dataframe
+from src.model_utils import calculate_scale_pos_weight, get_feature_type_lists, make_train_test_split, save_dataframe
 from src.threshold_optimizer import find_optimal_threshold
 from src.train_lightgbm import build_lightgbm_pipeline
 
 
 GENDER_COLUMN = "CODE_GENDER"
 EDUCATION_COLUMN = "NAME_EDUCATION_TYPE"
+ORGANIZATION_COLUMN = "ORGANIZATION_TYPE"
 
 
 def safe_auc(y_true: pd.Series | np.ndarray, y_proba: np.ndarray) -> float:
@@ -71,6 +78,8 @@ def disaggregated_metrics(
 ) -> pd.DataFrame:
     """Compute subgroup metrics for a sensitive or governance-relevant column."""
     rows = []
+    if column not in X_test.columns:
+        return pd.DataFrame(rows)
     group_values = sorted(X_test[column].dropna().unique())
     if allowed_groups is not None:
         group_values = [group for group in group_values if group in allowed_groups]
@@ -178,15 +187,17 @@ def dataframe_to_markdown(df: pd.DataFrame, columns: list[str]) -> str:
 
 
 def save_fairness_report(
-    gender_df: pd.DataFrame,
-    education_df: pd.DataFrame,
+    results_df: pd.DataFrame,
     no_gender_auc: float,
     auc_degradation: float,
+    threshold: float,
+    threshold_label: str,
     config: dict,
 ) -> None:
     """Save the human-readable fairness report."""
     output_file = ensure_parent_dir(config["reports"]["fairness_report_md"])
-    gender_columns = [
+    columns = [
+        "attribute",
         "group",
         "n",
         "roc_auc",
@@ -197,17 +208,10 @@ def save_fairness_report(
         "actual_default_rate",
         "equalized_odds_gap",
     ]
-    education_columns = [
-        "group",
-        "n",
-        "roc_auc",
-        "average_precision",
-        "false_positive_rate",
-        "false_negative_rate",
-        "predicted_default_rate",
-        "actual_default_rate",
-        "equalized_odds_gap",
-    ]
+    gender_df = results_df[results_df["attribute"] == GENDER_COLUMN].copy()
+    education_df = results_df[results_df["attribute"] == EDUCATION_COLUMN].copy()
+    organization_df = results_df[results_df["attribute"] == ORGANIZATION_COLUMN].copy()
+    champion = get_champion_spec(config)
     recommendation = (
         "CODE_GENDER should be further investigated before any deployment. "
         "The current portfolio system may retain it for transparent analysis, "
@@ -217,15 +221,23 @@ def save_fairness_report(
 
 ## Gender Metrics
 
-{dataframe_to_markdown(gender_df, gender_columns)}
+{dataframe_to_markdown(gender_df, columns)}
 
 ## Education Metrics
 
-{dataframe_to_markdown(education_df, education_columns)}
+{dataframe_to_markdown(education_df, columns)}
+
+## Organization-Type Proxy Diagnostics
+
+{dataframe_to_markdown(organization_df.head(15), columns)}
+
+## Threshold Policy
+
+Metrics in this report use the configured champion operating threshold: **{threshold_label} = {threshold:.2f}** for **{champion.model_name}**. This is not labelled as lender-cost-optimal unless it is the `cost_minimizing_threshold`.
 
 ## AUC Impact of Removing CODE_GENDER
 
-The LightGBM model retrained without `CODE_GENDER` achieved ROC-AUC {no_gender_auc:.4f}. The AUC degradation relative to the full model was {auc_degradation:.4f}.
+The champion model retrained without `CODE_GENDER` achieved ROC-AUC {no_gender_auc:.4f}. The AUC degradation relative to the full model was {auc_degradation:.4f}.
 
 ## Equalized Odds in Lending
 
@@ -233,7 +245,7 @@ Equalized Odds compares error rates across groups. In lending, it asks whether g
 
 ## Regulatory Context
 
-Credit scoring and lending workflows require governance under the Equal Credit Opportunity Act (ECOA) in the United States, GDPR Article 22 for automated decision-making in the European Union, and the EU AI Act high-risk classification for credit scoring systems.
+Credit scoring and lending workflows require governance under the Equal Credit Opportunity Act (ECOA) in the United States, GDPR Article 22 for automated decision-making in the European Union, and the EU AI Act high-risk classification for credit scoring systems. Retaining sensitive variables in this portfolio experiment is for transparency and diagnostic review. Removing protected attributes does not eliminate proxy bias, and these metrics are diagnostic rather than a mitigation strategy.
 
 ## Recommendation
 
@@ -245,47 +257,60 @@ Credit scoring and lending workflows require governance under the Equal Credit O
 def main() -> None:
     """Run fairness analysis and save reports."""
     config = load_config()
+    champion = get_champion_spec(config)
 
-    print("Loading LightGBM model and holdout split...")
-    model = load_model_artifact(config["artifacts"]["lightgbm_model"])
-    X, y = load_engineered_data()
+    print(f"Loading champion model and holdout split: {champion.model_name}...")
+    model = load_champion_model(config)
+    X, y = load_champion_feature_data(config)
     X_train, X_test, y_train, y_test = make_train_test_split(X, y, config)
 
     y_proba = model.predict_proba(X_test)[:, 1]
-    _, _, _, optimal_threshold = find_optimal_threshold(
+    threshold_result = find_optimal_threshold(
         y_test,
         y_proba,
         fn_cost=config["thresholds"]["business_scenarios"]["lender"]["fn_cost"],
         fp_cost=config["thresholds"]["business_scenarios"]["lender"]["fp_cost"],
     )
+    operating_threshold = resolve_selected_threshold(config, threshold_result)
+    threshold_label = champion.selected_operating_threshold
 
     print("Computing subgroup metrics...")
-    gender_df = disaggregated_metrics(
-        X_test,
-        y_test,
-        y_proba,
-        GENDER_COLUMN,
-        optimal_threshold,
-        allowed_groups=["F", "M"],
-    )
-    education_df = disaggregated_metrics(X_test, y_test, y_proba, EDUCATION_COLUMN, optimal_threshold)
+    result_frames = []
+    for column in config["fairness"].get("governance_columns", [GENDER_COLUMN, EDUCATION_COLUMN]):
+        allowed = ["F", "M"] if column == GENDER_COLUMN else None
+        result_frames.append(
+            disaggregated_metrics(
+                X_test,
+                y_test,
+                y_proba,
+                column,
+                operating_threshold,
+                allowed_groups=allowed,
+            )
+        )
+    results = pd.concat([frame for frame in result_frames if not frame.empty], ignore_index=True)
 
     print("Training no-gender comparison model...")
     no_gender_auc, auc_degradation = train_without_gender(model, X_train, y_train, X_test, y_test, config)
 
-    results = pd.concat([gender_df, education_df], ignore_index=True)
-    results["optimal_threshold"] = optimal_threshold
+    results["operating_threshold"] = operating_threshold
+    results["threshold_policy"] = threshold_label
+    results["cost_minimizing_threshold"] = threshold_result.cost_minimizing_threshold
+    results["f1_optimal_threshold"] = threshold_result.f1_optimal_threshold
     results["no_gender_auc"] = no_gender_auc
     results["auc_degradation_without_gender"] = auc_degradation
 
     print("Saving fairness reports and visuals...")
     save_dataframe(results, config["reports"]["fairness_report_csv"])
-    save_fairness_report(gender_df, education_df, no_gender_auc, auc_degradation, config)
+    save_fairness_report(results, no_gender_auc, auc_degradation, operating_threshold, threshold_label, config)
+    gender_df = results[results["attribute"] == GENDER_COLUMN].copy()
+    education_df = results[results["attribute"] == EDUCATION_COLUMN].copy()
     save_fairness_visuals(gender_df, education_df, config)
 
     print()
     print("Fairness analysis complete.")
-    print(f"Optimal threshold: {optimal_threshold:.2f}")
+    print(f"Operating threshold ({threshold_label}): {operating_threshold:.2f}")
+    print(f"Lender cost-minimizing threshold: {threshold_result.cost_minimizing_threshold:.2f}")
     print(f"No-gender AUC: {no_gender_auc:.4f}")
     print(f"AUC degradation without gender: {auc_degradation:.4f}")
 

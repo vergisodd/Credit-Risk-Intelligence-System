@@ -1,6 +1,6 @@
 # Note: train-lgbm-bureau requires bureau.csv in data/raw/. See README for download.
 
-.PHONY: install train-lr train-xgb train-lgbm train-lgbm-bureau train-all evaluate explain fairness app test pipeline
+.PHONY: install train-lr train-xgb train-lgbm train-lgbm-bureau train-all evaluate explain fairness app compile test pipeline
 
 install:
 	pip install -r requirements.txt
@@ -30,6 +30,9 @@ fairness:
 
 app:
 	streamlit run app/streamlit_app.py
+
+compile:
+	python -m py_compile src/*.py app/streamlit_app.py
 
 test:
 	pytest tests/ -v

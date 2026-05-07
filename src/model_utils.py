@@ -90,11 +90,16 @@ def load_engineered_data(validate_schema: bool = True) -> tuple[pd.DataFrame, pd
     return X, y
 
 
-def load_engineered_data_with_bureau(validate_schema: bool = True) -> tuple[pd.DataFrame, pd.Series]:
+def load_engineered_data_with_bureau(
+    validate_schema: bool = True,
+    allow_missing_bureau: bool = False,
+) -> tuple[pd.DataFrame, pd.Series]:
     """
     Load application features joined with bureau aggregations.
 
-    Falls back to application-only features if bureau.csv is not available.
+    By default this requires bureau.csv because the bureau model has a wider
+    feature set than the application-only model. Set allow_missing_bureau=True
+    only for explicit exploratory comparisons that label the fallback clearly.
     """
     X, y, _ = load_and_clean(validate_schema=validate_schema)
     X = add_all_features(X)
@@ -118,6 +123,14 @@ def load_engineered_data_with_bureau(validate_schema: bool = True) -> tuple[pd.D
         )
         return X_joined, y
     except FileNotFoundError:
+        if not allow_missing_bureau:
+            config = load_config()
+            bureau_path = resolve_path(config["paths"]["bureau_data"])
+            raise FileNotFoundError(
+                f"Champion bureau feature set requires bureau.csv at {bureau_path}. "
+                "Download the Home Credit bureau.csv file into data/raw/ or run an "
+                "application-only model workflow explicitly."
+            )
         LOGGER.warning(
             "bureau.csv not found. Running without bureau features. "
             "Place bureau.csv at the configured bureau_data path and rerun for improved AUC."

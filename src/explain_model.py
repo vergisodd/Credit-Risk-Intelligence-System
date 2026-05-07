@@ -17,8 +17,9 @@ from scipy import sparse
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
+from src.champion_model import get_champion_spec, load_champion_feature_data, load_champion_model
 from src.config_loader import ensure_parent_dir, load_config, resolve_path
-from src.model_utils import load_engineered_data, load_model_artifact, make_train_test_split, save_dataframe
+from src.model_utils import make_train_test_split, save_dataframe
 
 
 FEATURE_INTERPRETATIONS = {
@@ -187,14 +188,19 @@ def aggregate_global_importance(
     return grouped
 
 
-def save_global_shap_chart(importance_df: pd.DataFrame, output_path: str, top_n: int) -> None:
+def save_global_shap_chart(
+    importance_df: pd.DataFrame,
+    output_path: str,
+    top_n: int,
+    model_name: str = "Champion Model",
+) -> None:
     """Save a horizontal global SHAP importance bar chart."""
     output_file = ensure_parent_dir(output_path)
     plot_df = importance_df.head(top_n).sort_values("mean_abs_shap_value", ascending=True)
     fig_height = max(6, top_n * 0.32)
     fig, ax = plt.subplots(figsize=(10, fig_height))
     ax.barh(plot_df["feature"], plot_df["mean_abs_shap_value"], color="#1B4F8A")
-    ax.set_title("Top LightGBM Features by Mean Absolute SHAP Value")
+    ax.set_title(f"Top {model_name} Features by Mean Absolute SHAP Value")
     ax.set_xlabel("Mean Absolute SHAP Value")
     ax.set_ylabel("")
     ax.grid(axis="x", alpha=0.25)
@@ -216,6 +222,7 @@ def create_feature_interpretation(feature: str) -> str:
 def save_explainability_report(importance_df: pd.DataFrame, sample_size: int, config: dict) -> None:
     """Write the explainability report with global and individual methodology."""
     output_file = ensure_parent_dir(config["reports"]["explainability_report"])
+    champion = get_champion_spec(config)
     top_features = importance_df.head(10).copy()
     table_lines = [
         "| Rank | Feature | Direction | Mean Abs SHAP | Interpretation |",
@@ -232,7 +239,7 @@ def save_explainability_report(importance_df: pd.DataFrame, sample_size: int, co
 
 ## Global SHAP Findings
 
-Global SHAP analysis was computed on {sample_size:,} stratified holdout applicants using the trained LightGBM pipeline. The top global features are:
+Global SHAP analysis was computed on {sample_size:,} stratified holdout applicants using the configured champion model: **{champion.model_name}**. One-hot encoded features are aggregated back to source feature names where possible. The top global features are:
 
 {chr(10).join(table_lines)}
 
@@ -242,13 +249,69 @@ Global SHAP analysis was computed on {sample_size:,} stratified holdout applican
 
 ## Per-Applicant Explanation Methodology
 
-Applicant-level explanations transform the applicant row through the fitted preprocessing pipeline, calculate LightGBM SHAP values on the transformed feature vector, and render a waterfall plot showing the strongest positive and negative contributors to that specific prediction.
+Applicant-level explanations transform the applicant row through the fitted preprocessing pipeline, calculate SHAP values on the transformed feature vector, aggregate one-hot encoded values back to source feature names, and render a waterfall plot showing the strongest positive and negative contributors to that specific prediction. The generated reason-code table separates contributors increasing risk from contributors decreasing risk and includes raw applicant values where available.
 
 ## Limitations
 
-Global feature importance reflects aggregate model behavior across the holdout population. SHAP values for individual applicants indicate feature contribution to that specific prediction, not causal credit risk factors. Sensitive attributes present in the feature set require governance review before any deployment in a regulated lending context under ECOA or equivalent frameworks.
+Global feature importance reflects aggregate model behavior across the holdout population. SHAP values for individual applicants indicate feature contribution to that specific prediction, not causal credit risk factors and not legally sufficient adverse-action reasons. Sensitive attributes present in the feature set require governance review before any deployment in a regulated lending context under ECOA or equivalent frameworks.
 """
     output_file.write_text(report, encoding="utf-8")
+
+
+def generate_applicant_reason_codes(
+    pipeline: Pipeline,
+    X_row: pd.DataFrame,
+    top_n: int = 5,
+) -> pd.DataFrame:
+    """Return business-readable applicant-level SHAP reason codes."""
+    try:
+        import shap
+    except ImportError as error:
+        raise RuntimeError("SHAP is not installed. Install dependencies before explaining applicants.") from error
+
+    preprocessor = pipeline.named_steps["preprocessor"]
+    estimator = pipeline.named_steps["model"]
+    transformed = to_dense_array(preprocessor.transform(X_row))
+    explainer = shap.TreeExplainer(estimator)
+    shap_values = normalize_shap_values(explainer.shap_values(transformed))[0]
+    metadata = get_feature_metadata(preprocessor)
+    working = metadata.copy()
+    working["shap_value"] = shap_values
+    grouped = (
+        working.groupby("feature", as_index=False)
+        .agg(
+            shap_value=("shap_value", "sum"),
+            transformed_feature_count=("transformed_feature", "count"),
+        )
+        .assign(abs_shap=lambda df: df["shap_value"].abs())
+        .sort_values("abs_shap", ascending=False)
+        .reset_index(drop=True)
+    )
+    grouped["direction"] = np.where(
+        grouped["shap_value"] >= 0,
+        "increases risk",
+        "decreases risk",
+    )
+    raw_values = []
+    for feature in grouped["feature"]:
+        value = X_row.iloc[0][feature] if feature in X_row.columns else None
+        raw_values.append("" if pd.isna(value) else str(value))
+    grouped["raw_applicant_value"] = raw_values
+    grouped["business_interpretation"] = grouped["feature"].apply(create_feature_interpretation)
+    positive = grouped[grouped["shap_value"] > 0].head(top_n)
+    negative = grouped[grouped["shap_value"] < 0].head(top_n)
+    reason_codes = pd.concat([positive, negative], ignore_index=True)
+    reason_codes.insert(0, "rank", range(1, len(reason_codes) + 1))
+    return reason_codes[
+        [
+            "rank",
+            "feature",
+            "direction",
+            "shap_value",
+            "raw_applicant_value",
+            "business_interpretation",
+        ]
+    ]
 
 
 def generate_individual_explanation(
@@ -318,14 +381,15 @@ def select_example_row(X_test: pd.DataFrame, probabilities: np.ndarray, lower: f
 def run_explainability(args: argparse.Namespace) -> None:
     """Generate global and three individual SHAP outputs."""
     config = load_config()
+    champion = get_champion_spec(config)
     if args.sample_size <= 0 or args.top_n <= 0:
         raise ValueError("sample-size and top-n must be positive integers.")
 
-    print("Loading trained LightGBM pipeline...")
-    model_pipeline = load_model_artifact(config["artifacts"]["lightgbm_model"])
+    print(f"Loading champion pipeline: {champion.model_name}...")
+    model_pipeline = load_champion_model(config)
 
     print("Preparing holdout data...")
-    X, y = load_engineered_data()
+    X, y = load_champion_feature_data(config)
     _, X_test, _, y_test = make_train_test_split(X, y, config)
 
     print("Sampling holdout rows for global SHAP...")
@@ -344,7 +408,12 @@ def run_explainability(args: argparse.Namespace) -> None:
 
     print("Saving global SHAP outputs...")
     save_dataframe(importance_df.head(args.top_n), config["reports"]["shap_feature_importance"])
-    save_global_shap_chart(importance_df, config["visuals"]["shap_feature_importance"], args.top_n)
+    save_global_shap_chart(
+        importance_df,
+        config["visuals"]["shap_feature_importance"],
+        args.top_n,
+        model_name=champion.model_name,
+    )
     save_explainability_report(importance_df, sample_size, config)
 
     print("Generating individual applicant waterfall plots...")
@@ -356,9 +425,18 @@ def run_explainability(args: argparse.Namespace) -> None:
         (examples["medium_min"], examples["medium_max"], config["visuals"]["shap_individual_medium_risk"]),
         (examples["high_min"], None, config["visuals"]["shap_individual_high_risk"]),
     ]
-    for lower, upper, output_path in example_specs:
+    reason_code_frames = []
+    for label, (lower, upper, output_path) in zip(["low", "medium", "high"], example_specs):
         X_row = select_example_row(X_test, probabilities, lower, upper)
         generate_individual_explanation(model_pipeline, X_row, transformed_names, resolve_path(output_path))
+        reason_codes = generate_applicant_reason_codes(model_pipeline, X_row)
+        reason_codes.insert(0, "example_risk_band", label)
+        reason_codes.insert(1, "predicted_default_probability", float(model_pipeline.predict_proba(X_row)[:, 1][0]))
+        reason_code_frames.append(reason_codes)
+    save_dataframe(
+        pd.concat(reason_code_frames, ignore_index=True),
+        config["reports"]["applicant_reason_codes"],
+    )
 
     print()
     print("Explainability complete.")

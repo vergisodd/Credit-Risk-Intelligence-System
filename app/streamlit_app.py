@@ -16,12 +16,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config_loader import load_config, resolve_path
-from src.explain_model import create_feature_interpretation, generate_individual_explanation
+from src.champion_model import (
+    get_champion_spec,
+    get_persisted_operating_threshold,
+    load_champion_feature_data,
+    review_recommendation,
+)
+from src.explain_model import (
+    create_feature_interpretation,
+    generate_applicant_reason_codes,
+    generate_individual_explanation,
+)
 from src.feature_engineering import add_all_features
-from src.model_utils import evaluate_predictions, load_engineered_data, make_train_test_split
+from src.feature_engineering_bureau import BUREAU_FEATURES
+from src.model_utils import make_train_test_split
+from src.threshold_optimizer import find_optimal_threshold
 
 
 CONFIG = load_config()
+CHAMPION = get_champion_spec(CONFIG)
 
 
 st.set_page_config(
@@ -72,12 +85,12 @@ def load_pipeline(artifact_key: str):
 
 @st.cache_data(show_spinner=False)
 def get_holdout_scores():
-    """Load holdout data and score LightGBM once for dashboard tools."""
-    model = load_pipeline("lightgbm_model")
+    """Load holdout data and score the champion model once for dashboard tools."""
+    model = load_pipeline(CHAMPION.artifact_key)
     if model is None:
         return None
     try:
-        X, y = load_engineered_data()
+        X, y = load_champion_feature_data(CONFIG)
         _, X_test, _, y_test = make_train_test_split(X, y, CONFIG)
         y_proba = model.predict_proba(X_test)[:, 1]
         return X_test, y_test, y_proba
@@ -115,7 +128,7 @@ def style_best_values(df: pd.DataFrame):
     return df.style.apply(highlight)
 
 
-def risk_tier(probability: float) -> tuple[str, str, str]:
+def ui_risk_tier(probability: float) -> tuple[str, str, str]:
     """Return risk tier, action, and color from configured thresholds."""
     tiers = CONFIG["thresholds"]["risk_tiers"]
     if probability < tiers["low"]:
@@ -136,7 +149,7 @@ def align_to_pipeline_features(pipeline, X_row: pd.DataFrame) -> pd.DataFrame:
     aligned = X_row.copy()
     for column in expected_features:
         if column not in aligned.columns:
-            aligned[column] = np.nan
+            aligned[column] = 0 if column in BUREAU_FEATURES else np.nan
     return aligned[expected_features]
 
 
@@ -144,6 +157,11 @@ def build_manual_applicant_row(inputs: dict) -> pd.DataFrame:
     """Build and engineer one applicant row."""
     raw_row = pd.DataFrame([inputs])
     return add_all_features(raw_row)
+
+
+def get_operating_threshold() -> float:
+    """Use the champion-selected operating threshold when metrics are available."""
+    return get_persisted_operating_threshold(CONFIG)
 
 
 def source_feature_name(feature: str) -> str:
@@ -174,7 +192,9 @@ def source_feature_name(feature: str) -> str:
 
 def display_verdict(probability: float) -> None:
     """Render the applicant risk verdict banner."""
-    tier, action, color = risk_tier(probability)
+    operating_threshold = get_operating_threshold()
+    tier, _, color = ui_risk_tier(probability)
+    action = review_recommendation(probability, operating_threshold, CONFIG)
     st.markdown(
         f"""
         <div style="background:{color};padding:1.1rem 1.25rem;border-radius:8px;margin:0.5rem 0 1rem 0;">
@@ -187,7 +207,11 @@ def display_verdict(probability: float) -> None:
 
 def risk_dashboard_page() -> None:
     """Risk Dashboard page."""
-    st.title("Risk Dashboard")
+    st.title("Credit Risk Review Console")
+    st.caption(
+        f"Champion model: {CHAMPION.model_name} | Feature set: {CHAMPION.feature_set} | "
+        "Manual review prioritization only"
+    )
     comparison_df = load_csv("reports", "model_comparison_full", "make evaluate")
     best_auc = None
     best_ap = None
@@ -198,8 +222,37 @@ def risk_dashboard_page() -> None:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Dataset Size", "307,511")
     col2.metric("Default Rate", "8.07%")
-    col3.metric("Best Model AUC", f"{best_auc:.4f}" if best_auc is not None else "Pending")
-    col4.metric("Best Model Average Precision", f"{best_ap:.4f}" if best_ap is not None else "Pending")
+    col3.metric("Champion / Best AUC", f"{best_auc:.4f}" if best_auc is not None else "Pending")
+    col4.metric("Champion / Best AP", f"{best_ap:.4f}" if best_ap is not None else "Pending")
+
+    scored = get_holdout_scores()
+    if scored is not None:
+        X_test, _, y_proba = scored
+        operating_threshold = get_operating_threshold()
+        queue_df = pd.DataFrame(
+            {
+                "applicant_row": X_test.index,
+                "score": y_proba,
+            }
+        )
+        queue_df["risk_tier"] = queue_df["score"].apply(lambda score: ui_risk_tier(score)[0].title())
+        queue_df["review_recommendation"] = queue_df["score"].apply(
+            lambda score: review_recommendation(score, operating_threshold, CONFIG)
+        )
+        queue_df = queue_df.sort_values("score", ascending=False).reset_index(drop=True)
+
+        queue_col, tier_col = st.columns([2, 1])
+        with queue_col:
+            st.subheader("Applicant Review Queue")
+            st.dataframe(
+                queue_df.head(25).style.format({"score": "{:.2%}"}),
+                width="stretch",
+                hide_index=True,
+            )
+        with tier_col:
+            st.subheader("Risk Tier Distribution")
+            distribution = queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+            st.bar_chart(distribution, x="risk_tier", y="count")
 
     roc_col, pr_col = st.columns(2)
     with roc_col:
@@ -215,11 +268,12 @@ def risk_dashboard_page() -> None:
 
 def applicant_prediction_page() -> None:
     """Applicant Risk Prediction page."""
-    st.title("Applicant Risk Prediction")
-    model = load_pipeline("lightgbm_model")
-    model_path = configured_path("artifacts", "lightgbm_model")
+    st.title("Applicant Review")
+    st.caption(f"Scoring with champion model: {CHAMPION.model_name}")
+    model = load_pipeline(CHAMPION.artifact_key)
+    model_path = configured_path("artifacts", CHAMPION.artifact_key)
     if model is None:
-        st.warning(f"LightGBM model not found at `{model_path}`. Run `make train-all` first.")
+        st.warning(f"Champion model not found at `{model_path}`. Run `make train-lgbm-bureau` first.")
         return
 
     education_options = [
@@ -235,52 +289,51 @@ def applicant_prediction_page() -> None:
         "AMT_CREDIT": st.sidebar.number_input("Credit Amount ($)", value=500000, step=10000),
         "AMT_ANNUITY": st.sidebar.number_input("Monthly Annuity ($)", value=25000, step=500),
         "AMT_GOODS_PRICE": st.sidebar.number_input("Goods Price ($)", value=450000, step=10000),
-        "DAYS_BIRTH": st.sidebar.slider("Age (days, negative)", -25000, -6500, -12000),
-        "DAYS_EMPLOYED": st.sidebar.number_input("Days Employed (negative means currently employed)", value=-2000),
+        "DAYS_BIRTH": -365.25 * st.sidebar.slider("Age (years)", 18, 75, 33),
+        "DAYS_EMPLOYED": -365.25 * st.sidebar.slider("Employment Tenure (years)", 0, 45, 5),
         "CNT_FAM_MEMBERS": st.sidebar.number_input("Family Members", min_value=1, max_value=10, value=2),
         "EXT_SOURCE_1": st.sidebar.slider("EXT_SOURCE_1", 0.0, 1.0, 0.5),
         "EXT_SOURCE_2": st.sidebar.slider("EXT_SOURCE_2", 0.0, 1.0, 0.5),
         "EXT_SOURCE_3": st.sidebar.slider("EXT_SOURCE_3", 0.0, 1.0, 0.5),
-        "CODE_GENDER": st.sidebar.selectbox("CODE_GENDER", ["M", "F"]),
-        "NAME_EDUCATION_TYPE": st.sidebar.selectbox("NAME_EDUCATION_TYPE", education_options),
+        "CODE_GENDER": st.sidebar.selectbox("Gender", ["M", "F"]),
+        "NAME_EDUCATION_TYPE": st.sidebar.selectbox("Education", education_options),
     }
 
     if st.button("Score Applicant", type="primary"):
         engineered_row = build_manual_applicant_row(inputs)
         aligned_row = align_to_pipeline_features(model, engineered_row)
         probability = float(model.predict_proba(aligned_row)[:, 1][0])
-        tier, action, _ = risk_tier(probability)
+        operating_threshold = get_operating_threshold()
+        tier, _, _ = ui_risk_tier(probability)
+        action = review_recommendation(probability, operating_threshold, CONFIG)
         display_verdict(probability)
 
         metric_col1, metric_col2, metric_col3 = st.columns(3)
-        metric_col1.metric("Predicted Probability", f"{probability:.2%}")
+        metric_col1.metric("Risk Score", f"{probability:.2%}")
         metric_col2.metric("Risk Tier", tier.title())
         metric_col3.metric(
-            f"Flag at {CONFIG['thresholds']['default']:.2f}",
-            "Flagged" if probability >= CONFIG["thresholds"]["default"] else "Not Flagged",
+            f"Predicted Class at {operating_threshold:.2f}",
+            "Review Flag" if probability >= operating_threshold else "No Review Flag",
         )
+        st.write(f"Business action recommendation: **{action}**")
 
-        st.subheader("Applicant SHAP Explanation")
+        st.subheader("Applicant Reason Codes")
         try:
             shap_path = configured_path("visuals", "shap_applicant_current")
             transformed_names = model.named_steps["preprocessor"].get_feature_names_out()
             transformed_names = [str(name).split("__", maxsplit=1)[-1] for name in transformed_names]
             top_features = generate_individual_explanation(model, aligned_row, transformed_names, shap_path)
             st.image(str(shap_path), width="stretch")
-            explanation_rows = []
-            for feature, values in top_features.items():
-                direction = "↑ increases risk" if values["shap_value"] >= 0 else "↓ decreases risk"
-                base_feature = source_feature_name(feature)
-                explanation_rows.append(
-                    {
-                        "Feature": feature,
-                        "Actual Value": values["actual_value"],
-                        "Direction": direction,
-                        "Magnitude": values["magnitude"],
-                        "Business Interpretation": create_feature_interpretation(base_feature),
-                    }
+            reason_codes = generate_applicant_reason_codes(model, aligned_row)
+            st.dataframe(reason_codes, width="stretch", hide_index=True)
+            sensitive_features = {"CODE_GENDER", "NAME_EDUCATION_TYPE", "ORGANIZATION_TYPE"}
+            used_sensitive = sorted(sensitive_features & set(reason_codes["feature"]))
+            if used_sensitive:
+                st.warning(
+                    "Governance warning: sensitive or proxy attributes appear in this applicant explanation: "
+                    + ", ".join(used_sensitive)
+                    + ". SHAP describes model behavior, not causality or legally sufficient adverse-action reasons."
                 )
-            st.dataframe(pd.DataFrame(explanation_rows), width="stretch")
         except (FileNotFoundError, RuntimeError, ValueError) as error:
             st.info(f"Applicant SHAP explanation is unavailable: {error}")
 
@@ -292,7 +345,7 @@ def applicant_prediction_page() -> None:
                 {
                     "Threshold": threshold,
                     "Flag Status": "Flagged" if flagged else "Not Flagged",
-                    "Action Recommendation": action if flagged else "Standard processing",
+                    "Action Recommendation": action if flagged else "Standard processing queue",
                 }
             )
         st.dataframe(pd.DataFrame(sensitivity_rows), width="stretch")
@@ -300,10 +353,10 @@ def applicant_prediction_page() -> None:
 
 def threshold_decision_page() -> None:
     """Threshold Decision Tool page."""
-    st.title("Threshold Decision Tool")
+    st.title("Threshold and Review Capacity Tool")
     scored = get_holdout_scores()
     if scored is None:
-        st.warning("LightGBM model outputs are unavailable. Run `make train-all` and `make evaluate`.")
+        st.warning("Champion model outputs are unavailable. Run `make train-lgbm-bureau` and `make evaluate`.")
         return
     _, y_test, y_proba = scored
 
@@ -317,6 +370,13 @@ def threshold_decision_page() -> None:
     col_a, col_b = st.columns(2)
     fn_cost = col_a.number_input("FN Cost Weight", min_value=0.0, value=10.0)
     fp_cost = col_b.number_input("FP Cost Weight", min_value=0.0, value=1.0)
+    capacity = st.slider(
+        "Daily Review Capacity as % of Queue",
+        min_value=1,
+        max_value=50,
+        value=15,
+        step=1,
+    )
 
     y_pred = (y_proba >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
@@ -334,6 +394,11 @@ def threshold_decision_page() -> None:
     metric_cols[3].metric("FPR", f"{fpr:.3f}")
     metric_cols[4].metric("FNR", f"{fnr:.3f}")
     metric_cols[5].metric("Total Cost", f"{total_cost:,.0f}")
+    capacity_threshold = float(np.quantile(y_proba, 1 - capacity / 100))
+    st.info(
+        f"A {capacity}% review-capacity policy would review the top {int((y_proba >= capacity_threshold).sum()):,} "
+        f"applicants at an implied score threshold of {capacity_threshold:.2f}."
+    )
 
     counts_df = pd.DataFrame({"Outcome": ["TN", "FP", "FN", "TP"], "Count": [tn, fp, fn, tp]})
     st.bar_chart(counts_df, x="Outcome", y="Count")
@@ -353,13 +418,16 @@ def threshold_decision_page() -> None:
             }
         )
     threshold_df = pd.DataFrame(threshold_rows)
+    threshold_result = find_optimal_threshold(y_test, y_proba, fn_cost=fn_cost, fp_cost=fp_cost)
     f1_optimal = threshold_df.loc[threshold_df["f1"].idxmax()]
     f1_optimal_cost = float(f1_optimal["total_cost"])
 
     st.write(
         f"At this threshold, the model flags {int(y_pred.sum()):,} applicants for review. "
         f"Of these, {tp:,} are genuine defaults (true positives) and {fp:,} are low-risk applicants unnecessarily reviewed. "
-        f"At these cost weights, this threshold costs {total_cost:,.0f} units vs. F1-optimal threshold cost of {f1_optimal_cost:,.0f} units."
+        f"At these cost weights, this threshold costs {total_cost:,.0f} units vs. F1-optimal threshold cost of {f1_optimal_cost:,.0f} units. "
+        f"The cost-minimizing threshold for these weights is {threshold_result.cost_minimizing_threshold:.2f}; "
+        f"the F1-optimal threshold is {threshold_result.f1_optimal_threshold:.2f}."
     )
 
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -432,6 +500,7 @@ def model_documentation_page() -> None:
     """Model Documentation page."""
     st.title("Model Documentation")
     report_specs = [
+        ("model_manifest", "Champion Model Manifest"),
         ("model_card", "Model Card"),
         ("business_recommendations", "Business Recommendations"),
         ("explainability_report", "Explainability Report"),

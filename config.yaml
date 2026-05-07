@@ -12,6 +12,25 @@ artifacts:
   lightgbm_model: "models/lightgbm_pipeline.pkl"
   lightgbm_bureau_model: "models/lightgbm_bureau_pipeline.pkl"
 
+champion:
+  model_name: "LightGBM+Bureau"
+  artifact_key: "lightgbm_bureau_model"
+  metrics_key: "lightgbm_bureau_metrics"
+  threshold_analysis_key: "lgbm_bureau_threshold_analysis"
+  feature_set: "application+bureau"
+  requires_bureau: true
+  fallback_artifact_key: null
+  selected_operating_threshold: "f1_optimal_threshold"
+  training_data_scope:
+    primary: "Home Credit application_train.csv"
+    bureau: "Home Credit bureau.csv aggregated to applicant level"
+    split: "Stratified 80/20 holdout using model.random_state"
+  limitations:
+    - "Portfolio demonstration only; not production-ready and not for automated credit decisions."
+    - "Uses application_train.csv plus bureau.csv only; remaining relational tables are not integrated."
+    - "Scores are review-prioritization estimates, not calibrated approval or denial decisions."
+    - "Sensitive and proxy variables require legal, compliance, and model-risk review before regulated use."
+
 reports:
   baseline_metrics: "reports/baseline_model_metrics.json"
   logistic_evaluation: "reports/logistic_regression_evaluation.json"
@@ -27,12 +46,14 @@ reports:
   model_card: "reports/model_card.md"
   business_recommendations: "reports/business_recommendations.md"
   shap_feature_importance: "reports/shap_feature_importance.csv"
+  applicant_reason_codes: "reports/applicant_reason_codes.csv"
   xgboost_feature_importance: "reports/xgboost_feature_importance.csv"
   explainability_report: "reports/explainability_report.md"
   fairness_report_csv: "reports/fairness_report.csv"
   fairness_report_md: "reports/fairness_report.md"
   cost_threshold_analysis: "reports/cost_threshold_analysis.csv"
   sample_predictions: "reports/sample_predictions.csv"
+  model_manifest: "reports/model_manifest.json"
 
 visuals:
   roc_lr: "visuals/roc_curve_logistic_regression.png"
@@ -50,7 +71,7 @@ visuals:
   confusion_matrix_lightgbm: "visuals/confusion_matrix_lightgbm_threshold_0_50.png"
   confusion_matrix_lightgbm_bureau: "visuals/confusion_matrix_lightgbm_bureau_threshold_0_50.png"
   calibration_plot: "visuals/calibration_plot.png"
-  shap_feature_importance: "visuals/shap_feature_importance_xgboost.png"
+  shap_feature_importance: "visuals/shap_feature_importance_champion.png"
   xgboost_feature_importance: "visuals/xgboost_feature_importance.png"
   shap_individual_low_risk: "visuals/shap_individual_low_risk.png"
   shap_individual_medium_risk: "visuals/shap_individual_medium_risk.png"
@@ -126,3 +147,7 @@ shap:
 
 fairness:
   disparity_threshold: 0.05
+  governance_columns:
+    - "CODE_GENDER"
+    - "NAME_EDUCATION_TYPE"
+    - "ORGANIZATION_TYPE"
