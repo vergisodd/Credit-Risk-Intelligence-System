@@ -33,6 +33,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Lint with Ruff
+        run: ruff check src app tests
+
+      - name: Check formatting with Black
+        run: black --check src app tests
+
       - name: Compile Python files
         run: python -m compileall src app tests
 
