@@ -106,28 +106,16 @@ Key upgrades include:
 
 ## System Workflow
 
-```text
-Raw Kaggle Data
-      ↓
-Data Cleaning + Schema Validation
-      ↓
-Application-Level Feature Engineering
-      ↓
-Bureau Aggregation Features
-      ↓
-Model Training + Comparison
-      ↓
-Champion Model Registry
-      ↓
-Threshold Optimization + Risk Tiering
-      ↓
-Score Decile + Business Impact Analysis
-      ↓
-SHAP Explainability + Reason Codes
-      ↓
-Fairness + Calibration + Drift Diagnostics
-      ↓
-Streamlit Analyst Console
+```mermaid
+flowchart LR
+    A[Raw Data] --> B[Cleaning]
+    B --> C[Feature Engineering]
+    C --> D[Model Training]
+    D --> E[Champion Model]
+    E --> F[Thresholding]
+    F --> G[Explainability]
+    G --> H[Fairness / Calibration / Drift]
+    H --> I[Streamlit Analyst Console]
 ```
 
 ---
