@@ -1,0 +1,31 @@
+example_risk_band,predicted_default_probability,rank,feature,direction,shap_value,raw_applicant_value,business_interpretation
+low,0.07283309018708857,1,EXT_SOURCE_1,increases risk,0.0997544268865543,,This external score is an externally derived risk signal used for ranking applicants.
+low,0.07283309018708857,2,REGION_RATING_CLIENT_W_CITY,increases risk,0.080839834196286,3,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+low,0.07283309018708857,3,FLAG_OWN_CAR,increases risk,0.0689945833552915,N,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+low,0.07283309018708857,4,AMT_CREDIT,increases risk,0.06319131807306198,1431000.0,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+low,0.07283309018708857,5,AGE_YEARS,increases risk,0.05847811266469003,38.46680355920602,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+low,0.07283309018708857,6,EXT_SOURCE_MEAN,decreases risk,-0.3992036278448507,0.7051188956925731,Lower external-source scores generally indicate a weaker external credit-risk signal.
+low,0.07283309018708857,7,CREDIT_TERM_RATIO,decreases risk,-0.23047925029949168,0.02759119496855346,A higher annuity-to-credit relationship can indicate a shorter or heavier repayment structure.
+low,0.07283309018708857,8,NAME_EDUCATION_TYPE,decreases risk,-0.20065878268709536,Higher education,Education category may proxy socioeconomic patterns and should be reviewed for fairness impact.
+low,0.07283309018708857,9,GOODS_CREDIT_RATIO,decreases risk,-0.18644209390184177,1.0,This compares the financed goods price with the total requested credit.
+low,0.07283309018708857,10,EXT_SOURCE_3,decreases risk,-0.1728303884485817,0.7557400501752248,This external score often captures repayment-risk signal not visible in simple affordability ratios.
+medium,0.4018836815142188,1,CREDIT_TERM_RATIO,increases risk,0.3493348515817573,0.05460734017363852,A higher annuity-to-credit relationship can indicate a shorter or heavier repayment structure.
+medium,0.4018836815142188,2,AMT_GOODS_PRICE,increases risk,0.11222630226585674,315000.0,The goods price helps contextualize the requested credit amount.
+medium,0.4018836815142188,3,BUREAU_SUM_AMT_CREDIT_SUM,increases risk,0.11004859784755044,81048.78,Total credit exposure across all bureau loans; indicates overall debt burden.
+medium,0.4018836815142188,4,GOODS_CREDIT_RATIO,increases risk,0.09709908792896288,0.8632596685082873,This compares the financed goods price with the total requested credit.
+medium,0.4018836815142188,5,EXT_SOURCE_MAX,increases risk,0.07985538210792544,0.6196207697267319,The strongest external-source score can offset some weaker application attributes.
+medium,0.4018836815142188,6,EXT_SOURCE_MEAN,decreases risk,-0.1277524422605463,0.5660088416287689,Lower external-source scores generally indicate a weaker external credit-risk signal.
+medium,0.4018836815142188,7,EXT_SOURCE_1,decreases risk,-0.11169972827224257,0.5935542796633079,This external score is an externally derived risk signal used for ranking applicants.
+medium,0.4018836815142188,8,CODE_GENDER,decreases risk,-0.10229087915920798,F,Gender is a sensitive demographic attribute and requires governance review before any deployment.
+medium,0.4018836815142188,9,EMPLOYMENT_YEARS,decreases risk,-0.07682718204950417,13.49760438056126,"Employment tenure can provide stability signal, although it is not causal proof."
+medium,0.4018836815142188,10,DAYS_EMPLOYED,decreases risk,-0.07649419009464478,-4930,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+high,0.8391990232696261,1,EXT_SOURCE_MIN,increases risk,0.4196395655980932,0.030108122688633,The weakest external-source score can pull an applicant into a higher-review group.
+high,0.8391990232696261,2,EXT_SOURCE_MEAN,increases risk,0.29837084282695486,0.28448541463330035,Lower external-source scores generally indicate a weaker external credit-risk signal.
+high,0.8391990232696261,3,CODE_GENDER,increases risk,0.24925643365513867,M,Gender is a sensitive demographic attribute and requires governance review before any deployment.
+high,0.8391990232696261,4,EXT_SOURCE_2,increases risk,0.23101525829203134,0.030108122688633,This external score adds third-party risk information beyond income and loan amount.
+high,0.8391990232696261,5,EXT_SOURCE_PRODUCT,increases risk,0.16402062421635488,0.030108122688633,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+high,0.8391990232696261,6,EXT_SOURCE_3,decreases risk,-0.08957368943446542,0.5388627065779676,This external score often captures repayment-risk signal not visible in simple affordability ratios.
+high,0.8391990232696261,7,AGE_YEARS,decreases risk,-0.05931922426579374,66.25598904859685,This feature contributes predictive signal in the model but should not be interpreted as causal evidence.
+high,0.8391990232696261,8,BUREAU_ACTIVE_DEBT_RATIO,decreases risk,-0.043974406807716464,0.0,Ratio of outstanding debt to total bureau credit; higher ratios indicate less repayment progress.
+high,0.8391990232696261,9,BUREAU_SUM_AMT_CREDIT_SUM,decreases risk,-0.04151325451844215,202365.0,Total credit exposure across all bureau loans; indicates overall debt burden.
+high,0.8391990232696261,10,ANNUITY_INCOME_RATIO,decreases risk,-0.040796455378643334,0.12554545454545454,Higher annuity payments relative to income can pressure monthly cash flow.

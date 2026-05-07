@@ -16,6 +16,7 @@ from sklearn.calibration import calibration_curve
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
 
 from src.config_loader import ensure_parent_dir, load_config, resolve_path
+from src.champion_model import get_champion_spec, save_model_manifest
 from src.model_utils import (
     evaluate_predictions,
     load_engineered_data,
@@ -24,7 +25,7 @@ from src.model_utils import (
     make_train_test_split,
     save_dataframe,
 )
-from src.threshold_optimizer import find_optimal_threshold
+from src.threshold_optimizer import ThresholdOptimizationResult, find_optimal_threshold
 
 
 MODEL_SPECS = [
@@ -59,20 +60,6 @@ def get_cv_auc(config: dict, model_name: str, report_key: str) -> float:
     return float(metrics.get("cv_auc_mean", float("nan")))
 
 
-def find_f1_optimal_threshold(
-    y_true: pd.Series | np.ndarray,
-    y_proba: np.ndarray,
-) -> tuple[float, dict]:
-    """Find the F1-maximizing threshold for a model."""
-    rows = []
-    for threshold in np.round(np.arange(0.05, 0.951, 0.01), 2):
-        metrics = evaluate_predictions(y_true, y_proba, float(threshold))
-        rows.append(metrics)
-    results = pd.DataFrame(rows)
-    best_row = results.loc[results["f1_default_class"].idxmax()]
-    return float(best_row["threshold"]), best_row.to_dict()
-
-
 def build_comparison_table(
     y_test: pd.Series | np.ndarray,
     scores: dict[str, np.ndarray],
@@ -81,11 +68,19 @@ def build_comparison_table(
 ) -> pd.DataFrame:
     """Create the all-model comparison table."""
     rows = []
+    lender = config["thresholds"]["business_scenarios"]["lender"]
     for model_name, y_proba in scores.items():
         report_key = next(
             report_key for spec_name, _, report_key, _, _ in MODEL_SPECS if spec_name == model_name
         )
-        optimal_threshold, optimal_metrics = find_f1_optimal_threshold(y_test, y_proba)
+        threshold_result = find_optimal_threshold(
+            y_test,
+            y_proba,
+            fn_cost=lender["fn_cost"],
+            fp_cost=lender["fp_cost"],
+        )
+        f1_metrics = evaluate_predictions(y_test, y_proba, threshold_result.f1_optimal_threshold)
+        cost_metrics = evaluate_predictions(y_test, y_proba, threshold_result.cost_minimizing_threshold)
         default_metrics = evaluate_predictions(y_test, y_proba, default_threshold)
         rows.append(
             {
@@ -96,9 +91,16 @@ def build_comparison_table(
                 "F1-Default": default_metrics["f1_default_class"],
                 "Precision-Default": default_metrics["precision_default_class"],
                 "Recall-Default": default_metrics["recall_default_class"],
-                "Optimal Threshold": optimal_threshold,
-                "FP at Optimal": int(optimal_metrics["false_positives"]),
-                "FN at Optimal": int(optimal_metrics["false_negatives"]),
+                "F1-Optimal Threshold": threshold_result.f1_optimal_threshold,
+                "F1 at F1-Optimal": threshold_result.f1_at_optimal,
+                "Cost-Min Threshold": threshold_result.cost_minimizing_threshold,
+                "Min Relative Cost": threshold_result.min_cost,
+                "Precision-Selected": f1_metrics["precision_default_class"],
+                "Recall-Selected": f1_metrics["recall_default_class"],
+                "Review Volume-Selected": int(f1_metrics["predicted_default_count"]),
+                "Missed Defaults-Selected": int(f1_metrics["false_negatives"]),
+                "Review Volume-Cost-Min": int(cost_metrics["predicted_default_count"]),
+                "Missed Defaults-Cost-Min": int(cost_metrics["false_negatives"]),
             }
         )
     return pd.DataFrame(rows)
@@ -170,7 +172,9 @@ def save_calibration_plot(
     """Save a reliability diagram for XGBoost and LightGBM."""
     output_file = ensure_parent_dir(output_path)
     fig, ax = plt.subplots(figsize=(7, 6))
-    for model_name in ["XGBoost", "LightGBM"]:
+    for model_name in ["XGBoost", "LightGBM", "LightGBM+Bureau"]:
+        if model_name not in scores:
+            continue
         prob_true, prob_pred = calibration_curve(y_test, scores[model_name], n_bins=10)
         ax.plot(prob_pred, prob_true, marker="o", label=model_name)
     ax.plot([0, 1], [0, 1], linestyle="--", color="#6B7280", label="Perfect calibration")
@@ -188,22 +192,24 @@ def save_cost_threshold_outputs(
     y_test: pd.Series | np.ndarray,
     y_proba: np.ndarray,
     config: dict,
-) -> None:
-    """Save cost-threshold CSV and visual for the LightGBM model."""
+) -> ThresholdOptimizationResult:
+    """Save cost-threshold CSV and visual for the champion model."""
     scenario_a = config["thresholds"]["business_scenarios"]["lender"]
     scenario_b = config["thresholds"]["business_scenarios"]["balanced"]
-    threshold_a, _, results_a, f1_threshold = find_optimal_threshold(
+    optimization_a = find_optimal_threshold(
         y_test,
         y_proba,
         fn_cost=scenario_a["fn_cost"],
         fp_cost=scenario_a["fp_cost"],
     )
-    threshold_b, _, results_b, _ = find_optimal_threshold(
+    optimization_b = find_optimal_threshold(
         y_test,
         y_proba,
         fn_cost=scenario_b["fn_cost"],
         fp_cost=scenario_b["fp_cost"],
     )
+    results_a = optimization_a.threshold_table
+    results_b = optimization_b.threshold_table
     output_df = pd.DataFrame(
         {
             "threshold": results_a["threshold"],
@@ -220,9 +226,9 @@ def save_cost_threshold_outputs(
     fig, ax = plt.subplots(figsize=(9, 6))
     ax.plot(output_df["threshold"], output_df["total_cost_A"], label="Scenario A cost")
     ax.plot(output_df["threshold"], output_df["total_cost_B"], label="Scenario B cost")
-    ax.axvline(f1_threshold, color="#111827", linestyle="--", label="F1-optimal")
-    ax.axvline(threshold_a, color="#1B4F8A", linestyle=":", label="Scenario A optimum")
-    ax.axvline(threshold_b, color="#B45309", linestyle=":", label="Scenario B optimum")
+    ax.axvline(optimization_a.f1_optimal_threshold, color="#111827", linestyle="--", label="F1-optimal")
+    ax.axvline(optimization_a.cost_minimizing_threshold, color="#1B4F8A", linestyle=":", label="Lender cost-min")
+    ax.axvline(optimization_b.cost_minimizing_threshold, color="#B45309", linestyle=":", label="Balanced cost-min")
     ax.set_title("Cost Threshold Analysis")
     ax.set_xlabel("Threshold")
     ax.set_ylabel("Total Relative Cost")
@@ -231,6 +237,7 @@ def save_cost_threshold_outputs(
     fig.tight_layout()
     fig.savefig(output_file, dpi=300)
     plt.close(fig)
+    return optimization_a
 
 
 def update_model_comparison_report(
@@ -248,15 +255,26 @@ def update_model_comparison_report(
     markdown_table = "\n".join([f"| {header} |", f"| {separator} |", *[f"| {row} |" for row in rows]])
     low_tier = config["thresholds"]["risk_tiers"]["low"]
     high_tier = config["thresholds"]["risk_tiers"]["medium"]
+    champion = get_champion_spec(config)
     note_block = f"\n{note}\n" if note else ""
     report = f"""# Model Comparison Report
 
 ## Summary
 
-The strongest holdout model is **{best_row["Model"]}** with ROC-AUC {best_row["AUC-ROC"]:.4f} and Average Precision {best_row["Average Precision"]:.4f}.
+The champion model is **{champion.model_name}** (`{champion.feature_set}` feature set). The strongest holdout model in the comparison is **{best_row["Model"]}** with ROC-AUC {best_row["AUC-ROC"]:.4f} and Average Precision {best_row["Average Precision"]:.4f}.
 
 {markdown_table}
 {note_block}
+
+## Threshold Definitions
+
+`default_threshold` is the conventional 0.50 classifier cutoff.
+
+`cost_minimizing_threshold` minimizes a stated false-negative/false-positive cost scenario. In the bundled lender scenario, false negatives are weighted 10x false positives.
+
+`f1_optimal_threshold` maximizes default-class F1. This is the configured operating threshold for the portfolio review queue because it balances precision and recall for manual review prioritization.
+
+`risk_tiers` are score bands used for analyst triage and are not the same thing as a binary classifier threshold.
 
 ## Calibration Interpretation
 
@@ -292,7 +310,14 @@ def main() -> None:
     save_combined_roc(y_test, scores, config["visuals"]["roc_comparison_all_models"])
     save_combined_pr(y_test, scores, config["visuals"]["pr_comparison_all_models"])
     save_calibration_plot(y_test, scores, config["visuals"]["calibration_plot"])
-    save_cost_threshold_outputs(y_test, scores["LightGBM"], config)
+    champion_name = get_champion_spec(config).model_name
+    if champion_name not in scores:
+        raise FileNotFoundError(
+            f"Champion model scores for {champion_name} are unavailable. "
+            "Train the champion model and ensure bureau.csv is available."
+        )
+    threshold_optimization = save_cost_threshold_outputs(y_test, scores[champion_name], config)
+    save_model_manifest(config, threshold_optimization)
     update_model_comparison_report(comparison_df, config, improvement_note)
 
     print()

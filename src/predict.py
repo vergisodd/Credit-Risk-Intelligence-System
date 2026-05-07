@@ -10,10 +10,15 @@ if __package__ in {None, ""}:
 
 import pandas as pd
 
+from src.champion_model import (
+    get_persisted_operating_threshold,
+    load_champion_feature_data,
+    load_champion_model,
+    review_recommendation,
+)
 from src.config_loader import load_config
-from src.data_cleaning import DEFAULT_ID_COLUMN, load_raw_data, prepare_features_and_target
-from src.feature_engineering import add_all_features
-from src.model_utils import load_model_artifact, save_dataframe
+from src.data_cleaning import DEFAULT_ID_COLUMN, load_raw_data
+from src.model_utils import save_dataframe
 
 
 def assign_risk_tier(default_probability: float, config: dict) -> str:
@@ -29,27 +34,36 @@ def assign_risk_tier(default_probability: float, config: dict) -> str:
 def predict_risk(model: object, X: pd.DataFrame, config: dict) -> pd.DataFrame:
     """Generate default-risk predictions for applicant data."""
     probabilities = model.predict_proba(X)[:, 1]
-    predictions = (probabilities >= config["thresholds"]["default"]).astype(int)
+    operating_threshold = get_operating_threshold(config)
+    predictions = (probabilities >= operating_threshold).astype(int)
     prediction_results = pd.DataFrame(
         {
             "default_probability": probabilities,
-            "predicted_class": predictions,
+            "predicted_class_at_operating_threshold": predictions,
         }
     )
     prediction_results["risk_tier"] = prediction_results["default_probability"].apply(
         lambda probability: assign_risk_tier(probability, config)
     )
+    prediction_results["operating_threshold"] = operating_threshold
+    prediction_results["review_recommendation"] = prediction_results["default_probability"].apply(
+        lambda probability: review_recommendation(probability, operating_threshold, config)
+    )
     return prediction_results
+
+
+def get_operating_threshold(config: dict) -> float:
+    """Read the champion operating threshold from metrics, falling back to default."""
+    return get_persisted_operating_threshold(config)
 
 
 def create_sample_predictions(sample_size: int = 20) -> pd.DataFrame:
     """Create sample predictions from the raw training data."""
     config = load_config()
-    model = load_model_artifact(config["artifacts"]["logistic_model"])
+    model = load_champion_model(config)
     df = load_raw_data()
     applicant_ids = df[DEFAULT_ID_COLUMN].copy() if DEFAULT_ID_COLUMN in df.columns else None
-    X, y, _ = prepare_features_and_target(df)
-    X = add_all_features(X)
+    X, y = load_champion_feature_data(config)
     prediction_results = predict_risk(model, X.head(sample_size), config)
 
     if applicant_ids is not None:

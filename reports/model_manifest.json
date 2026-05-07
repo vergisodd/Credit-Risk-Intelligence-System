@@ -1,0 +1,62 @@
+{
+    "champion_model_name": "LightGBM+Bureau",
+    "artifact_key": "lightgbm_bureau_model",
+    "artifact_path": "models/lightgbm_bureau_pipeline.pkl",
+    "feature_set": "application+bureau",
+    "requires_bureau": true,
+    "fallback_artifact_key": null,
+    "metrics": {
+        "roc_auc": 0.7746306604044293,
+        "average_precision": 0.268075020209669,
+        "tuned_cv_auc_mean": 0.7702340560142618,
+        "tuned_cv_auc_std": 0.0009698129454022668,
+        "tuned_cv_ap_mean": 0.2572646829344075,
+        "default_threshold_metrics": {
+            "threshold": 0.5,
+            "accuracy": 0.7209079231907387,
+            "roc_auc": 0.7746306604044293,
+            "average_precision": 0.268075020209669,
+            "precision_default_class": 0.17830397637380024,
+            "recall_default_class": 0.6809667673716012,
+            "f1_default_class": 0.282609604212814,
+            "true_negatives": 40957,
+            "false_positives": 15581,
+            "false_negatives": 1584,
+            "true_positives": 3381,
+            "predicted_default_count": 18962
+        }
+    },
+    "threshold_policy": {
+        "default_threshold": 0.5,
+        "selected_operating_threshold_policy": "f1_optimal_threshold",
+        "selected_operating_threshold": 0.66,
+        "risk_tiers": {
+            "low": 0.3,
+            "medium": 0.59,
+            "high": 1.01
+        },
+        "cost_minimizing_threshold": 0.53,
+        "min_cost": 31225.0,
+        "f1_optimal_threshold": 0.66,
+        "f1_at_optimal": 0.3250346791268161,
+        "fn_cost": 10.0,
+        "fp_cost": 1.0
+    },
+    "training_data_scope": {
+        "primary": "Home Credit application_train.csv",
+        "bureau": "Home Credit bureau.csv aggregated to applicant level",
+        "split": "Stratified 80/20 holdout using model.random_state"
+    },
+    "created_at_utc": "2026-05-07T06:28:11+00:00",
+    "version_info": {
+        "model_random_state": 42,
+        "test_size": 0.2,
+        "cv_folds": 5
+    },
+    "limitations": [
+        "Portfolio demonstration only; not production-ready and not for automated credit decisions.",
+        "Uses application_train.csv plus bureau.csv only; remaining relational tables are not integrated.",
+        "Scores are review-prioritization estimates, not calibrated approval or denial decisions.",
+        "Sensitive and proxy variables require legal, compliance, and model-risk review before regulated use."
+    ]
+}

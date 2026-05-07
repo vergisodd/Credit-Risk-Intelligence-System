@@ -1,21 +1,21 @@
-applicant_id,default_probability,predicted_class,risk_tier,actual_target
-100002,0.9272382700914936,1,High Risk,1
-100003,0.18673337302657195,0,Low Risk,0
-100004,0.24405215936980124,0,Low Risk,0
-100006,0.3410154952952551,0,Medium Risk,0
-100007,0.5047081641932286,1,Medium Risk,0
-100008,0.5375292917696858,1,Medium Risk,0
-100009,0.07451791638253279,0,Low Risk,0
-100010,0.23840186853906833,0,Low Risk,0
-100011,0.3797693614308308,0,Medium Risk,0
-100012,0.2603448278824828,0,Low Risk,0
-100014,0.3661448661704609,0,Medium Risk,0
-100015,0.2559778447244551,0,Low Risk,0
-100016,0.558727761623934,1,Medium Risk,0
-100017,0.38616210925355643,0,Medium Risk,0
-100018,0.34647121496052413,0,Medium Risk,0
-100019,0.6162875760487591,1,High Risk,0
-100020,0.9189717062721863,1,High Risk,0
-100021,0.3414567849320254,0,Medium Risk,0
-100022,0.16946362877877963,0,Low Risk,0
-100023,0.3761231082213041,0,Medium Risk,0
+applicant_id,default_probability,predicted_class_at_operating_threshold,risk_tier,operating_threshold,review_recommendation,actual_target
+100002,0.8373096488394622,1,High Risk,0.5,Route to manual review (high risk tier),1
+100003,0.21322289348993503,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100004,0.24022691401163718,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100006,0.37673362705397606,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100007,0.5226619932534612,1,Medium Risk,0.5,Route to manual review (medium risk tier),0
+100008,0.3042190630440456,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100009,0.08406316111473218,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100010,0.12060243800641936,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100011,0.34365945716859236,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100012,0.2154739379696923,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100014,0.28301172506140665,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100015,0.09722533080163424,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100016,0.4164269417625456,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100017,0.3459644156086821,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100018,0.19049832953073775,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100019,0.5584318814138035,1,Medium Risk,0.5,Route to manual review (medium risk tier),0
+100020,0.9329000516919576,1,High Risk,0.5,Route to manual review (high risk tier),0
+100021,0.3303405142777721,0,Medium Risk,0.5,Standard processing queue; no automated approval decision,0
+100022,0.15262293419535924,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0
+100023,0.24615246913525218,0,Low Risk,0.5,Standard processing queue; no automated approval decision,0

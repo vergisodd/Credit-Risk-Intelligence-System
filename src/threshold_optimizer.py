@@ -1,10 +1,36 @@
-"""Cost-based threshold optimization utilities."""
+"""Cost-based and F1 threshold optimization utilities."""
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix, f1_score
+
+
+@dataclass(frozen=True)
+class ThresholdOptimizationResult:
+    """Named threshold optimization output to avoid ambiguous tuple positions."""
+
+    cost_minimizing_threshold: float
+    min_cost: float
+    f1_optimal_threshold: float
+    f1_at_optimal: float
+    threshold_table: pd.DataFrame
+    fn_cost: float
+    fp_cost: float
+
+    def to_summary_dict(self) -> dict[str, float]:
+        """Return JSON-serializable scalar threshold policy fields."""
+        return {
+            "cost_minimizing_threshold": self.cost_minimizing_threshold,
+            "min_cost": self.min_cost,
+            "f1_optimal_threshold": self.f1_optimal_threshold,
+            "f1_at_optimal": self.f1_at_optimal,
+            "fn_cost": self.fn_cost,
+            "fp_cost": self.fp_cost,
+        }
 
 
 def find_optimal_threshold(
@@ -12,7 +38,7 @@ def find_optimal_threshold(
     y_proba: pd.Series | np.ndarray,
     fn_cost: float,
     fp_cost: float,
-) -> tuple[float, float, pd.DataFrame, float]:
+) -> ThresholdOptimizationResult:
     """
     Find the cost-minimizing threshold and the F1-maximizing threshold.
 
@@ -37,9 +63,12 @@ def find_optimal_threshold(
     results = pd.DataFrame(rows)
     cost_row = results.loc[results["total_cost"].idxmin()]
     f1_row = results.loc[results["f1_default"].idxmax()]
-    return (
-        float(cost_row["threshold"]),
-        float(cost_row["total_cost"]),
-        results,
-        float(f1_row["threshold"]),
+    return ThresholdOptimizationResult(
+        cost_minimizing_threshold=float(cost_row["threshold"]),
+        min_cost=float(cost_row["total_cost"]),
+        f1_optimal_threshold=float(f1_row["threshold"]),
+        f1_at_optimal=float(f1_row["f1_default"]),
+        threshold_table=results,
+        fn_cost=float(fn_cost),
+        fp_cost=float(fp_cost),
     )
