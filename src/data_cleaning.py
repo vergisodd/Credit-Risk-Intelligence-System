@@ -66,8 +66,7 @@ def validate_data(df: pd.DataFrame, strict_shape: bool = True) -> None:
     default_rate = df[DEFAULT_TARGET_COLUMN].mean()
     if not 0.07 <= default_rate <= 0.10:
         raise AssertionError(
-            "Default rate is outside the expected range "
-            f"(observed {default_rate:.2%})."
+            "Default rate is outside the expected range " f"(observed {default_rate:.2%})."
         )
 
     if strict_shape:

@@ -13,7 +13,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
-from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
+from sklearn.metrics import (
+    average_precision_score,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
 
 from src.config_loader import ensure_parent_dir, load_config, resolve_path
 from src.champion_model import get_champion_spec, save_model_manifest
@@ -33,6 +38,13 @@ MODEL_SPECS = [
     ("XGBoost", "xgboost_model", "xgboost_metrics", "application", False),
     ("LightGBM", "lightgbm_model", "lightgbm_metrics", "application", False),
     ("LightGBM+Bureau", "lightgbm_bureau_model", "lightgbm_bureau_metrics", "bureau", True),
+    (
+        "LightGBM+Full Relational",
+        "lightgbm_full_relational_model",
+        "lightgbm_full_relational_metrics",
+        "full_relational",
+        True,
+    ),
 ]
 
 
@@ -42,6 +54,8 @@ def get_scores(config: dict, test_sets: dict[str, pd.DataFrame]) -> dict[str, np
     for model_name, artifact_key, _, test_set_key, optional in MODEL_SPECS:
         artifact_path = resolve_path(config["artifacts"][artifact_key])
         if optional and not artifact_path.exists():
+            continue
+        if optional and test_set_key not in test_sets:
             continue
         model = load_model_artifact(config["artifacts"][artifact_key])
         scores[model_name] = model.predict_proba(test_sets[test_set_key])[:, 1]
@@ -57,6 +71,8 @@ def get_cv_auc(config: dict, model_name: str, report_key: str) -> float:
         metrics = json.load(file)
     if model_name in {"LightGBM", "LightGBM+Bureau"}:
         return float(metrics.get("tuned_cv_auc_mean", metrics.get("cv_auc_mean", float("nan"))))
+    if model_name == "LightGBM+Full Relational":
+        return float(metrics.get("tuned_cv_auc_mean", float("nan")))
     return float(metrics.get("cv_auc_mean", float("nan")))
 
 
@@ -80,7 +96,9 @@ def build_comparison_table(
             fp_cost=lender["fp_cost"],
         )
         f1_metrics = evaluate_predictions(y_test, y_proba, threshold_result.f1_optimal_threshold)
-        cost_metrics = evaluate_predictions(y_test, y_proba, threshold_result.cost_minimizing_threshold)
+        cost_metrics = evaluate_predictions(
+            y_test, y_proba, threshold_result.cost_minimizing_threshold
+        )
         default_metrics = evaluate_predictions(y_test, y_proba, default_threshold)
         rows.append(
             {
@@ -112,7 +130,9 @@ def bureau_improvement_note(comparison_df: pd.DataFrame) -> str | None:
     if {"LightGBM", "LightGBM+Bureau"} - model_names:
         return None
     lightgbm_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM", "AUC-ROC"].iloc[0])
-    bureau_auc = float(comparison_df.loc[comparison_df["Model"] == "LightGBM+Bureau", "AUC-ROC"].iloc[0])
+    bureau_auc = float(
+        comparison_df.loc[comparison_df["Model"] == "LightGBM+Bureau", "AUC-ROC"].iloc[0]
+    )
     improvement = bureau_auc - lightgbm_auc
     if improvement <= 0:
         return None
@@ -226,9 +246,21 @@ def save_cost_threshold_outputs(
     fig, ax = plt.subplots(figsize=(9, 6))
     ax.plot(output_df["threshold"], output_df["total_cost_A"], label="Scenario A cost")
     ax.plot(output_df["threshold"], output_df["total_cost_B"], label="Scenario B cost")
-    ax.axvline(optimization_a.f1_optimal_threshold, color="#111827", linestyle="--", label="F1-optimal")
-    ax.axvline(optimization_a.cost_minimizing_threshold, color="#1B4F8A", linestyle=":", label="Lender cost-min")
-    ax.axvline(optimization_b.cost_minimizing_threshold, color="#B45309", linestyle=":", label="Balanced cost-min")
+    ax.axvline(
+        optimization_a.f1_optimal_threshold, color="#111827", linestyle="--", label="F1-optimal"
+    )
+    ax.axvline(
+        optimization_a.cost_minimizing_threshold,
+        color="#1B4F8A",
+        linestyle=":",
+        label="Lender cost-min",
+    )
+    ax.axvline(
+        optimization_b.cost_minimizing_threshold,
+        color="#B45309",
+        linestyle=":",
+        label="Balanced cost-min",
+    )
     ax.set_title("Cost Threshold Analysis")
     ax.set_xlabel("Threshold")
     ax.set_ylabel("Total Relative Cost")
@@ -252,7 +284,9 @@ def update_model_comparison_report(
     markdown_table = markdown_table.replace("|", " | ")
     header, *rows = markdown_table.strip().splitlines()
     separator = " | ".join(["---"] * len(comparison_df.columns))
-    markdown_table = "\n".join([f"| {header} |", f"| {separator} |", *[f"| {row} |" for row in rows]])
+    markdown_table = "\n".join(
+        [f"| {header} |", f"| {separator} |", *[f"| {row} |" for row in rows]]
+    )
     low_tier = config["thresholds"]["risk_tiers"]["low"]
     high_tier = config["thresholds"]["risk_tiers"]["medium"]
     champion = get_champion_spec(config)
@@ -297,6 +331,20 @@ def main() -> None:
         if not y_test.reset_index(drop=True).equals(y_test_bureau.reset_index(drop=True)):
             raise ValueError("Bureau and application holdout splits do not align.")
         test_sets["bureau"] = X_test_bureau
+    full_relational_artifact_path = resolve_path(
+        config["artifacts"]["lightgbm_full_relational_model"]
+    )
+    if full_relational_artifact_path.exists():
+        from src.model_utils import load_engineered_data_with_full_relational
+
+        try:
+            X_full, y_full = load_engineered_data_with_full_relational()
+            _, X_test_full, _, y_test_full = make_train_test_split(X_full, y_full, config)
+            if not y_test.reset_index(drop=True).equals(y_test_full.reset_index(drop=True)):
+                raise ValueError("Full-relational and application holdout splits do not align.")
+            test_sets["full_relational"] = X_test_full
+        except FileNotFoundError as error:
+            print(f"Skipping full-relational model comparison: {error}")
 
     print("Scoring all trained model pipelines...")
     scores = get_scores(config, test_sets)

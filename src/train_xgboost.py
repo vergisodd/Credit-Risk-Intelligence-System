@@ -68,7 +68,9 @@ def build_xgboost_pipeline(
     )
 
 
-def run_cross_validation(model: Pipeline, X_train: pd.DataFrame, y_train: pd.Series, config: dict) -> dict:
+def run_cross_validation(
+    model: Pipeline, X_train: pd.DataFrame, y_train: pd.Series, config: dict
+) -> dict:
     """Run stratified 5-fold CV on the training set."""
     cv = StratifiedKFold(
         n_splits=config["model"]["cv_folds"],
@@ -105,9 +107,7 @@ def summarize_results(metrics: dict) -> None:
                 "Average Precision": metrics["average_precision"],
                 "CV AUC": metrics["cv_auc_mean"],
                 "CV AP": metrics["cv_ap_mean"],
-                "Precision": metrics["default_threshold_metrics"][
-                    "precision_default_class"
-                ],
+                "Precision": metrics["default_threshold_metrics"]["precision_default_class"],
                 "Recall": metrics["default_threshold_metrics"]["recall_default_class"],
                 "F1": metrics["default_threshold_metrics"]["f1_default_class"],
             }

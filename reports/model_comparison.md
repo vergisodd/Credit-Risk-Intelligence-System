@@ -13,6 +13,7 @@ The champion model is **LightGBM+Bureau** (`application+bureau` feature set). Th
 
 LightGBM+Bureau achieved +0.0032 AUC improvement from bureau feature integration
 
+
 ## Threshold Definitions
 
 `default_threshold` is the conventional 0.50 classifier cutoff.

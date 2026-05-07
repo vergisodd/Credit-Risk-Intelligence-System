@@ -179,7 +179,9 @@ def risk_tier(default_probability: float, config: dict[str, Any] | None = None) 
     return "High"
 
 
-def review_recommendation(default_probability: float, operating_threshold: float, config: dict[str, Any] | None = None) -> str:
+def review_recommendation(
+    default_probability: float, operating_threshold: float, config: dict[str, Any] | None = None
+) -> str:
     """Return a business-readable manual review recommendation."""
     tier = risk_tier(default_probability, config)
     if default_probability >= operating_threshold:

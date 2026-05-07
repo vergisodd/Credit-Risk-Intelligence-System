@@ -47,7 +47,7 @@
         "bureau": "Home Credit bureau.csv aggregated to applicant level",
         "split": "Stratified 80/20 holdout using model.random_state"
     },
-    "created_at_utc": "2026-05-07T06:28:11+00:00",
+    "created_at_utc": "2026-05-07T15:52:28+00:00",
     "version_info": {
         "model_random_state": 42,
         "test_size": 0.2,
@@ -55,7 +55,7 @@
     },
     "limitations": [
         "Portfolio demonstration only; not production-ready and not for automated credit decisions.",
-        "Uses application_train.csv plus bureau.csv only; remaining relational tables are not integrated.",
+        "The configured champion uses application_train.csv plus bureau.csv; deeper relational features are optional research workflows and are not automatically promoted.",
         "Scores are review-prioritization estimates, not calibrated approval or denial decisions.",
         "Sensitive and proxy variables require legal, compliance, and model-risk review before regulated use."
     ]
