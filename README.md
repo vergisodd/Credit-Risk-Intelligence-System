@@ -191,24 +191,171 @@ Validation details are documented in [reports/validation_strategy.md](reports/va
 ## Repository Structure
 
 ```text
-app/                     Streamlit analyst console
-src/champion_model.py     Champion registry and manifest helpers
-src/threshold_optimizer.py Named threshold optimization result
-src/train_lightgbm_common.py Shared LightGBM training utilities
-src/train_lightgbm_bureau.py Champion training workflow
-src/train_lightgbm_full_relational.py Optional full-relational training workflow
-src/feature_engineering_relational.py Optional Home Credit relational aggregations
-src/evaluate_all.py       Model comparison, calibration, threshold reporting
-src/score_decile_analysis.py Score decile and lift reporting
-src/business_impact_simulation.py Review-routing policy simulation
-src/calibration_report.py Calibration diagnostics
-src/drift_monitoring.py   Train-vs-holdout drift simulation
-src/explain_model.py      Champion SHAP and reason-code generation
-src/fairness_analysis.py  Champion subgroup diagnostics
-reports/                 Model card, manifest, fairness, explainability, comparison, validation
-tests/                   Unit tests for feature, threshold, fairness, and champion logic
-Dockerfile               Demo-mode Streamlit container
-pyproject.toml           Ruff, Black, and pytest configuration
+Credit-Risk-Intelligence-System/
+│
+├── README.md
+├── LICENSE
+├── Makefile
+├── requirements.txt
+├── pyproject.toml
+├── Dockerfile
+├── .dockerignore
+├── .gitignore
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── configs/
+│   └── config.yaml
+│
+├── credit_risk_intelligence/
+│   ├── __init__.py
+│   │
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── loader.py
+│   │
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── cleaning.py
+│   │   ├── loaders.py
+│   │   ├── validation.py
+│   │   └── splitting.py
+│   │
+│   ├── features/
+│   │   ├── __init__.py
+│   │   ├── application_features.py
+│   │   ├── bureau_features.py
+│   │   ├── relational_features.py
+│   │   └── feature_registry.py
+│   │
+│   ├── modeling/
+│   │   ├── __init__.py
+│   │   ├── preprocessing.py
+│   │   ├── common.py
+│   │   ├── train_logistic.py
+│   │   ├── train_xgboost.py
+│   │   ├── train_lightgbm.py
+│   │   ├── train_lightgbm_bureau.py
+│   │   ├── train_lightgbm_full_relational.py
+│   │   ├── champion.py
+│   │   └── artifacts.py
+│   │
+│   ├── evaluation/
+│   │   ├── __init__.py
+│   │   ├── metrics.py
+│   │   ├── model_comparison.py
+│   │   ├── threshold_policy.py
+│   │   ├── score_deciles.py
+│   │   ├── business_impact.py
+│   │   └── calibration.py
+│   │
+│   ├── explainability/
+│   │   ├── __init__.py
+│   │   ├── shap_analysis.py
+│   │   └── reason_codes.py
+│   │
+│   ├── governance/
+│   │   ├── __init__.py
+│   │   ├── fairness.py
+│   │   ├── drift.py
+│   │   └── validation_strategy.py
+│   │
+│   ├── reporting/
+│   │   ├── __init__.py
+│   │   ├── report_writers.py
+│   │   ├── plot_utils.py
+│   │   └── markdown_utils.py
+│   │
+│   └── utils/
+│       ├── __init__.py
+│       ├── paths.py
+│       └── logging.py
+│
+├── app/
+│   ├── streamlit_app.py
+│   ├── pages/
+│   │   ├── __init__.py
+│   │   ├── risk_dashboard.py
+│   │   ├── applicant_review.py
+│   │   ├── threshold_tool.py
+│   │   ├── score_deciles.py
+│   │   ├── business_impact.py
+│   │   ├── calibration.py
+│   │   ├── drift_monitoring.py
+│   │   ├── fairness.py
+│   │   ├── explainability.py
+│   │   └── model_documentation.py
+│   └── components/
+│       ├── __init__.py
+│       ├── charts.py
+│       ├── tables.py
+│       └── notices.py
+│
+├── scripts/
+│   ├── train_logistic.py
+│   ├── train_xgboost.py
+│   ├── train_lightgbm.py
+│   ├── train_champion.py
+│   ├── train_full_relational.py
+│   ├── evaluate_models.py
+│   ├── generate_explainability.py
+│   ├── generate_fairness_report.py
+│   ├── generate_score_deciles.py
+│   ├── generate_business_impact.py
+│   ├── generate_calibration_report.py
+│   └── generate_drift_report.py
+│
+├── data/
+│   ├── raw/
+│   │   └── .gitkeep
+│   ├── processed/
+│   │   └── .gitkeep
+│   └── README.md
+│
+├── models/
+│   └── .gitkeep
+│
+├── reports/
+│   ├── model_card.md
+│   ├── model_manifest.json
+│   ├── model_comparison.md
+│   ├── fairness_report.md
+│   ├── explainability_report.md
+│   ├── validation_strategy.md
+│   ├── score_decile_analysis.md
+│   ├── business_impact_simulation.md
+│   ├── calibration_report.md
+│   └── drift_report.md
+│
+├── visuals/
+│   ├── model_performance/
+│   ├── explainability/
+│   ├── fairness/
+│   ├── calibration/
+│   ├── drift/
+│   └── business/
+│
+├── screenshots/
+│   └── applicant_risk_prediction.png
+│
+├── docs/
+│   ├── architecture.md
+│   ├── modeling_methodology.md
+│   ├── governance_notes.md
+│   ├── local_setup.md
+│   └── deployment_notes.md
+│
+└── tests/
+    ├── config/
+    ├── data/
+    ├── features/
+    ├── modeling/
+    ├── evaluation/
+    ├── explainability/
+    ├── governance/
+    └── app/
 ```
 
 
