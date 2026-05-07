@@ -11,25 +11,6 @@ The hosted Streamlit app is a **public demo mode** using committed reports, visu
 ![Applicant Review Console](screenshots/applicant_risk_prediction.png)
 
 
-## System Workflow
-
-```text
-Raw Kaggle Data
-      ↓
-Cleaning + Feature Engineering
-      ↓
-Application + Bureau Feature Set
-      ↓
-Model Training + Comparison
-      ↓
-Champion Model Registry
-      ↓
-Threshold Policy + Fairness Diagnostics + SHAP
-      ↓
-Streamlit Analyst Console
-```
----
-
 ## Champion Result
 
 | Champion | Feature Set | ROC-AUC | Average Precision | Base Rate | Operating Threshold |
@@ -227,18 +208,6 @@ tests/                   Unit tests for feature, threshold, fairness, and champi
 Dockerfile               Demo-mode Streamlit container
 pyproject.toml           Ruff, Black, and pytest configuration
 ```
-
-
-## Key Skills Demonstrated
-
-- Machine learning pipeline design with Logistic Regression, XGBoost, and LightGBM
-- Feature engineering from relational credit bureau data
-- Imbalanced classification evaluation using ROC-AUC, Average Precision, recall, precision, and F1
-- Threshold optimization for review-prioritization decisions
-- SHAP explainability and applicant-level reason codes
-- Fairness diagnostics across sensitive and proxy attributes
-- Streamlit dashboard development for analyst workflows
-- Reproducible project structure with Makefile commands and unit tests
 
 
 ## Limitations
