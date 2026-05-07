@@ -53,6 +53,15 @@ def missing_file_info(path: Path, command: str) -> None:
     st.info(f"Missing `{path}`. Run `{command}` to generate it.")
 
 
+def demo_mode_notice() -> None:
+    """Explain why cloud demo pages use pre-generated outputs."""
+    st.info(
+        "Cloud demo mode: raw Kaggle files and trained model binaries are intentionally not committed. "
+        "This page uses pre-generated champion reports and sample outputs. Full live scoring works locally "
+        "after running `make train-lgbm-bureau`."
+    )
+
+
 def load_csv(section: str, key: str, command: str) -> pd.DataFrame | None:
     """Load a configured CSV with graceful fallback."""
     path = configured_path(section, key)
@@ -126,6 +135,46 @@ def style_best_values(df: pd.DataFrame):
         ]
 
     return df.style.apply(highlight)
+
+
+def build_sample_queue() -> pd.DataFrame | None:
+    """Load pre-generated sample predictions for public demo mode."""
+    sample_df = load_csv("reports", "sample_predictions", "python src/predict.py")
+    if sample_df is None or sample_df.empty:
+        return None
+    queue_df = sample_df.copy()
+    if "default_probability" in queue_df.columns:
+        queue_df = queue_df.rename(columns={"default_probability": "score"})
+    display_columns = [
+        column for column in [
+            "applicant_id",
+            "score",
+            "risk_tier",
+            "predicted_class_at_operating_threshold",
+            "operating_threshold",
+            "review_recommendation",
+            "actual_target",
+        ]
+        if column in queue_df.columns
+    ]
+    return queue_df[display_columns].sort_values("score", ascending=False).reset_index(drop=True)
+
+
+def show_sample_queue(
+    queue_df: pd.DataFrame,
+    title: str = "Sample Champion Review Queue",
+    show_distribution: bool = False,
+) -> None:
+    """Render a small pre-generated review queue."""
+    st.subheader(title)
+    st.dataframe(
+        queue_df.style.format({"score": "{:.2%}", "operating_threshold": "{:.2f}"}),
+        width="stretch",
+        hide_index=True,
+    )
+    if show_distribution and "risk_tier" in queue_df.columns:
+        distribution = queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+        st.bar_chart(distribution, x="risk_tier", y="count")
 
 
 def ui_risk_tier(probability: float) -> tuple[str, str, str]:
@@ -253,6 +302,17 @@ def risk_dashboard_page() -> None:
             st.subheader("Risk Tier Distribution")
             distribution = queue_df["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
             st.bar_chart(distribution, x="risk_tier", y="count")
+    else:
+        demo_mode_notice()
+        sample_queue = build_sample_queue()
+        if sample_queue is not None:
+            queue_col, tier_col = st.columns([2, 1])
+            with queue_col:
+                show_sample_queue(sample_queue.head(20))
+            with tier_col:
+                st.subheader("Sample Risk Tier Distribution")
+                distribution = sample_queue["risk_tier"].value_counts().rename_axis("risk_tier").reset_index(name="count")
+                st.bar_chart(distribution, x="risk_tier", y="count")
 
     roc_col, pr_col = st.columns(2)
     with roc_col:
@@ -273,7 +333,53 @@ def applicant_prediction_page() -> None:
     model = load_pipeline(CHAMPION.artifact_key)
     model_path = configured_path("artifacts", CHAMPION.artifact_key)
     if model is None:
-        st.warning(f"Champion model not found at `{model_path}`. Run `make train-lgbm-bureau` first.")
+        demo_mode_notice()
+        st.caption(f"Local model path: `{model_path}`")
+        sample_queue = build_sample_queue()
+        if sample_queue is not None:
+            selected_id = st.selectbox(
+                "Sample Applicant",
+                sample_queue["applicant_id"].astype(str).tolist(),
+            )
+            selected = sample_queue.loc[sample_queue["applicant_id"].astype(str) == selected_id].iloc[0]
+            probability = float(selected["score"])
+            operating_threshold = float(selected.get("operating_threshold", get_operating_threshold()))
+            tier, _, _ = ui_risk_tier(probability)
+            action = str(selected.get("review_recommendation", review_recommendation(probability, operating_threshold, CONFIG)))
+            display_verdict(probability)
+            metric_col1, metric_col2, metric_col3 = st.columns(3)
+            metric_col1.metric("Risk Score", f"{probability:.2%}")
+            metric_col2.metric("Risk Tier", tier.title())
+            metric_col3.metric(
+                f"Predicted Class at {operating_threshold:.2f}",
+                "Review Flag" if probability >= operating_threshold else "No Review Flag",
+            )
+            st.write(f"Business action recommendation: **{action}**")
+            show_sample_queue(sample_queue.head(20), title="Pre-Generated Sample Queue")
+
+        reason_codes = load_csv("reports", "applicant_reason_codes", "make explain")
+        if reason_codes is not None and not reason_codes.empty:
+            st.subheader("Representative Champion Reason Codes")
+            risk_band = st.selectbox("Reason-Code Example", ["high", "medium", "low"])
+            band_df = reason_codes[reason_codes["example_risk_band"] == risk_band].copy()
+            st.dataframe(band_df, width="stretch", hide_index=True)
+            sensitive_features = {"CODE_GENDER", "NAME_EDUCATION_TYPE", "ORGANIZATION_TYPE"}
+            used_sensitive = sorted(sensitive_features & set(band_df["feature"]))
+            if used_sensitive:
+                st.warning(
+                    "Governance warning: sensitive or proxy attributes appear in this representative explanation: "
+                    + ", ".join(used_sensitive)
+                    + ". SHAP describes model behavior, not causality or legally sufficient adverse-action reasons."
+                )
+
+        st.subheader("Representative SHAP Waterfalls")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            show_image("visuals", "shap_individual_low_risk", "make explain", "Low risk")
+        with col2:
+            show_image("visuals", "shap_individual_medium_risk", "make explain", "Medium risk")
+        with col3:
+            show_image("visuals", "shap_individual_high_risk", "make explain", "High risk")
         return
 
     education_options = [
@@ -356,7 +462,44 @@ def threshold_decision_page() -> None:
     st.title("Threshold and Review Capacity Tool")
     scored = get_holdout_scores()
     if scored is None:
-        st.warning("Champion model outputs are unavailable. Run `make train-lgbm-bureau` and `make evaluate`.")
+        demo_mode_notice()
+        threshold_df = load_csv("reports", "cost_threshold_analysis", "make evaluate")
+        if threshold_df is None or threshold_df.empty:
+            st.warning("Pre-generated threshold analysis is unavailable. Run `make evaluate` locally.")
+            return
+
+        threshold = st.slider(
+            "Decision Threshold",
+            min_value=float(threshold_df["threshold"].min()),
+            max_value=float(threshold_df["threshold"].max()),
+            value=float(get_operating_threshold()),
+            step=float(CONFIG["thresholds"]["step"]),
+        )
+        nearest_index = (threshold_df["threshold"] - threshold).abs().idxmin()
+        selected_row = threshold_df.loc[nearest_index]
+
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("F1", f"{selected_row['f1_default']:.3f}")
+        metric_cols[1].metric("False Negatives", f"{int(selected_row['FN']):,}")
+        metric_cols[2].metric("False Positives", f"{int(selected_row['FP']):,}")
+        metric_cols[3].metric("Lender Cost", f"{selected_row['total_cost_A']:,.0f}")
+
+        st.write(
+            "This public view uses the pre-generated champion threshold table. "
+            "Interactive review-capacity simulation requires local holdout scores and the trained model artifact."
+        )
+
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(threshold_df["threshold"], threshold_df["total_cost_A"], color="#1B4F8A", label="Lender cost")
+        ax.plot(threshold_df["threshold"], threshold_df["total_cost_B"], color="#B45309", label="Balanced cost")
+        ax.axvline(threshold, color="#111827", linestyle="--", label="Selected threshold")
+        ax.set_xlabel("Threshold")
+        ax.set_ylabel("Total Relative Cost")
+        ax.set_title("Pre-Generated Cost Threshold Analysis")
+        ax.grid(alpha=0.25)
+        ax.legend(loc="best")
+        st.pyplot(fig)
+        st.dataframe(threshold_df, width="stretch", hide_index=True)
         return
     _, y_test, y_proba = scored
 
