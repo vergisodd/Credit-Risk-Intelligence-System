@@ -1,84 +1,180 @@
 # Credit Risk Intelligence System
 
-Credit risk review-prioritization system for the Home Credit Default Risk dataset, with a governed **LightGBM+Bureau** champion model, explicit threshold policy, SHAP reason codes, fairness diagnostics, and a Streamlit analyst console.
+**End-to-end credit risk review-prioritization system using the Home Credit Default Risk dataset.**
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red) ![License](https://img.shields.io/badge/License-MIT-green)
+This project builds a governed machine learning workflow that predicts applicant default risk, ranks applicants for manual review, explains model outputs with SHAP reason codes, and evaluates threshold, fairness, calibration, and drift risks.
+
+It is designed as a **decision-support system for credit risk analysts**, not as an automated loan approval or rejection engine.
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red)
+![License](https://img.shields.io/badge/License-MIT-green)
 ![CI](https://github.com/vergisodd/Credit-Risk-Intelligence-System/actions/workflows/ci.yml/badge.svg)
 
-[Live Demo](https://credit-risk-intelligence-system.streamlit.app)  
-The hosted Streamlit app is a **public demo mode** using committed reports, visuals, sample predictions, and reason codes. To use the fully interactive dashboard with custom applicant inputs and live champion-model scoring, run the project locally with the Kaggle data and trained model artifact.
+[Live Demo](https://credit-risk-intelligence-system.streamlit.app)
+
+The hosted Streamlit app runs in **public demo mode** using committed reports, visuals, sample predictions, and reason codes.  
+Full live scoring requires running the project locally with the Kaggle data and trained model artifacts.
 
 ![Applicant Review Console](screenshots/applicant_risk_prediction.png)
 
+---
+
+## Project at a Glance
+
+| Area | What This Project Demonstrates |
+|---|---|
+| Problem | Credit default risk review prioritization |
+| Dataset | Home Credit Default Risk Kaggle dataset |
+| Champion Model | LightGBM with application and bureau features |
+| Best ROC-AUC | 0.7746 |
+| Best Average Precision | 0.2681 against an 8.07% default base rate |
+| Main Workflow | Data cleaning, feature engineering, model training, evaluation, thresholding, explainability, fairness, calibration, drift simulation, and dashboarding |
+| Deployment | Streamlit analyst console with public demo mode |
+| Engineering | Makefile, Docker, tests, CI, config-driven champion model registry |
+
+---
 
 ## Champion Result
 
-| Champion | Feature Set | ROC-AUC | Average Precision | Base Rate | Operating Threshold |
+| Champion Model | Feature Set | ROC-AUC | Average Precision | Base Default Rate | Operating Threshold |
 |---|---|---:|---:|---:|---:|
 | LightGBM+Bureau | `application_train.csv` + `bureau.csv` aggregations | 0.7746 | 0.2681 | 8.07% | 0.66 F1-optimal |
 
-Average Precision is reported against an 8.07% default base rate, so the lift is meaningful despite low default-class precision. This project is a manual review prioritization workflow, not an automated approval or rejection system.
+The champion model improves ranking performance by combining applicant-level features with credit bureau aggregations.
 
-## What Changed From a Generic ML Demo
+Average Precision is evaluated against an 8.07% default base rate, which makes it more meaningful than accuracy for this imbalanced classification problem.
 
-- One champion model registry in `config.yaml`
-- `reports/model_manifest.json` documenting artifact, feature set, metrics, threshold policy, scope, and limitations
-- App, prediction, explainability, fairness, and evaluation workflows resolve the same champion model
-- Thresholds are named explicitly: default, F1-optimal, cost-minimizing, and risk-tier thresholds are different concepts
-- Applicant-level SHAP reason codes include positive/negative contributors and raw values where available
-- Fairness diagnostics include sensitive and proxy attributes while making clear that diagnostics are not mitigation
+This project does **not** claim to automate lending decisions. The model is used to prioritize applicants for manual review and to support analyst decision-making.
+
+---
+
+## Why This Project Matters
+
+Most student machine learning projects stop at model accuracy.
+
+This project goes further by treating credit risk as an operational decision problem:
+
+- Which applicants should be routed to manual review?
+- What threshold should be used for review prioritization?
+- How many defaults are captured at different review capacities?
+- Which features are driving applicant-level risk predictions?
+- Are sensitive or proxy attributes creating fairness concerns?
+- Are model scores calibrated enough to support decision-making?
+- What monitoring signals would matter before production use?
+
+The goal is not only to build a predictive model, but to show how model outputs can be governed, explained, monitored, and translated into a practical risk-review workflow.
+
+---
+
+## What Makes This More Than a Generic ML Demo
+
+This repository is structured as a credit-risk intelligence workflow, not just a notebook with a trained model.
+
+Key upgrades include:
+
+- A config-driven champion model registry in `config.yaml`
+- A model manifest documenting artifact paths, feature set, metrics, threshold policy, scope, and limitations
+- Separate workflows for training, evaluation, explainability, fairness, calibration, drift, score deciles, and business-impact simulation
+- Explicit separation between default thresholds, F1-optimal thresholds, cost-minimizing thresholds, and risk-tier thresholds
+- Applicant-level SHAP reason codes showing positive and negative risk contributors
+- Fairness diagnostics across sensitive and proxy attributes
+- Calibration analysis to test whether risk scores behave like reliable probability estimates
+- Drift simulation using train-vs-holdout monitoring signals
+- Streamlit analyst console for applicant review and risk triage
+- Reproducible commands through Makefile, tests, Docker, Ruff/Black, and GitHub Actions CI
+
+---
 
 ## Key Skills Demonstrated
 
-- Machine learning pipeline design with Logistic Regression, XGBoost, LightGBM, and LightGBM+Bureau
-- Relational feature engineering from credit bureau, previous applications, installments, POS cash, credit-card, and bureau-balance tables
+- End-to-end machine learning pipeline design
+- Credit risk classification using Logistic Regression, XGBoost, LightGBM, and LightGBM+Bureau
+- Feature engineering from application and bureau-level credit data
+- Optional relational feature engineering from previous applications, installments, POS cash, credit card, and bureau balance tables
 - Imbalanced classification evaluation using ROC-AUC, Average Precision, recall, precision, F1, and lift
 - Threshold optimization for manual review prioritization
-- Business impact simulation using cost-unit and review-capacity policies
-- SHAP explainability and applicant-level reason codes
+- Score decile and cumulative default capture analysis
+- Business-impact simulation using review-capacity and cost-unit assumptions
+- SHAP explainability and applicant-level reason-code generation
 - Fairness diagnostics across sensitive and proxy attributes
 - Calibration and drift-monitoring reports
 - Streamlit dashboard development for analyst workflows
-- Reproducible workflow with Makefile, tests, Docker, Ruff/Black, and GitHub Actions CI
+- Reproducible project structure with Makefile, tests, Docker, Ruff/Black, and GitHub Actions CI
+
+---
 
 ## System Workflow
 
 ```text
 Raw Kaggle Data
       ↓
-Cleaning + Feature Engineering
+Data Cleaning + Schema Validation
       ↓
-Application + Bureau Champion Model
+Application-Level Feature Engineering
       ↓
-Optional Full-Relational Research Features
+Bureau Aggregation Features
       ↓
 Model Training + Comparison
       ↓
 Champion Model Registry
       ↓
-Threshold Policy + Score Deciles + Business Simulation
+Threshold Optimization + Risk Tiering
       ↓
-SHAP + Fairness + Calibration + Drift Reports
+Score Decile + Business Impact Analysis
+      ↓
+SHAP Explainability + Reason Codes
+      ↓
+Fairness + Calibration + Drift Diagnostics
       ↓
 Streamlit Analyst Console
 ```
 
+---
+
 ## Analyst Console
 
-The Streamlit app is structured like a credit risk review tool. The public cloud deployment runs in demo mode because raw Kaggle files and trained model binaries are intentionally not committed. It shows the review workflow using committed outputs, but it does not perform live model scoring.
+The Streamlit app is designed as a credit risk analyst console.
 
-For the actual interactive version, run locally after placing the Kaggle files in `data/raw/` and training the champion model. Local mode enables custom applicant input changes, live risk scoring, applicant-level SHAP, and threshold simulation from holdout scores.
+The public deployment runs in demo mode because raw Kaggle files and trained model binaries are intentionally not committed. Demo mode shows the review workflow using committed outputs.
 
-- Champion model label and model-manifest view
-- Applicant review queue sorted by risk score
-- Risk tier distribution
-- Threshold and review-capacity tradeoff tool
-- Score decile/lift, business impact, calibration, and drift report pages
-- Per-applicant SHAP waterfall and reason-code table
-- Business action recommendation for manual review routing
-- Governance warning when sensitive or proxy features affect an applicant explanation
+Local mode enables:
 
-Run locally:
+- Custom applicant input changes
+- Live champion-model scoring
+- Applicant-level SHAP explanations
+- Reason-code tables
+- Risk tier assignment
+- Review queue prioritization
+- Threshold and review-capacity tradeoff analysis
+- Score decile and lift visualizations
+- Business-impact simulation
+- Calibration and drift report views
+- Fairness and proxy-feature warnings
+
+---
+
+## Quick Reviewer Path
+
+For reviewers who want to inspect the project quickly without downloading Kaggle data:
+
+```bash
+git clone https://github.com/vergisodd/Credit-Risk-Intelligence-System.git
+cd Credit-Risk-Intelligence-System
+pip install -r requirements.txt
+make test
+streamlit run app/streamlit_app.py
+```
+
+This opens the Streamlit app in demo mode using committed reports, visuals, sample predictions, and reason codes.
+
+Full training and live champion-model scoring require the Kaggle files to be placed in `data/raw/`.
+
+---
+
+## Full Local Run
+
+After placing the required Kaggle files in `data/raw/`, run:
 
 ```bash
 pip install -r requirements.txt
@@ -88,6 +184,8 @@ make explain
 make fairness
 streamlit run app/streamlit_app.py
 ```
+
+---
 
 ## Local Data Requirements
 
@@ -100,7 +198,7 @@ Required for the full champion pipeline:
 | `data/raw/application_train.csv` | All training/evaluation workflows |
 | `data/raw/bureau.csv` | Champion LightGBM+Bureau training, scoring, fairness, and explainability |
 
-If `bureau.csv` is missing, the bureau champion workflow now fails clearly instead of silently pretending an application-only model is the champion.
+If `bureau.csv` is missing, the bureau champion workflow fails clearly instead of silently pretending an application-only model is the champion.
 
 Optional for full-relational research training:
 
@@ -111,6 +209,8 @@ Optional for full-relational research training:
 - `data/raw/bureau_balance.csv`
 
 The configured champion remains LightGBM+Bureau unless a deeper relational model is trained, reviewed, and deliberately promoted.
+
+---
 
 ## Reproducible Commands
 
@@ -127,7 +227,9 @@ make calibration
 make drift
 ```
 
-`make pipeline` runs install, training, evaluation, explainability, and fairness. It requires the Kaggle files above and can take time because LightGBM tuning uses Optuna.
+`make pipeline` runs installation, model training, evaluation, explainability, and fairness workflows. It requires the Kaggle files above and can take time because LightGBM tuning uses Optuna.
+
+---
 
 ## Model Comparison
 
@@ -140,36 +242,77 @@ make drift
 
 See [reports/model_comparison.md](reports/model_comparison.md) and [reports/model_card.md](reports/model_card.md).
 
+---
+
 ## Threshold Policy
 
 | Threshold | Meaning |
 |---|---|
 | Default threshold | Conventional 0.50 classifier cutoff |
-| Cost-minimizing threshold | Minimizes a stated FN/FP cost scenario |
+| Cost-minimizing threshold | Minimizes a stated false-negative / false-positive cost scenario |
 | F1-optimal threshold | Maximizes default-class F1; configured operating threshold for this portfolio workflow |
 | Risk-tier thresholds | Score bands for analyst triage, not binary decision rules |
 
-Fairness reports no longer call the F1-optimal threshold “lender-cost-optimal.”
+Fairness reports do not label the F1-optimal threshold as “lender-cost-optimal.”
+
+---
 
 ## Score Decile and Lift Analysis
 
 AUC is not enough for credit review. A useful review-prioritization model should concentrate observed defaults in the highest-risk score bands.
 
-`make score-deciles` generates `reports/score_decile_analysis.csv`, `reports/score_decile_analysis.md`, `visuals/score_decile_lift.png`, and `visuals/cumulative_default_capture.png`. The report validates whether top-risk bands have default rates above the 8.07% base rate without hard-coding results into the README.
+`make score-deciles` generates:
+
+- `reports/score_decile_analysis.csv`
+- `reports/score_decile_analysis.md`
+- `visuals/score_decile_lift.png`
+- `visuals/cumulative_default_capture.png`
+
+The report validates whether top-risk bands have default rates above the 8.07% base rate without hard-coding results into the README.
+
+---
 
 ## Business Impact Simulation
 
-The model is evaluated as a review-routing policy, not as an automated decision engine. `make business-impact` compares default, F1-optimal, cost-minimizing, and top-capacity review policies across recall, false reviews, missed defaults, precision, F1, and relative cost units.
+The model is evaluated as a review-routing policy, not as an automated decision engine.
+
+`make business-impact` compares default, F1-optimal, cost-minimizing, and top-capacity review policies across:
+
+- Recall
+- Precision
+- F1
+- False reviews
+- Missed defaults
+- Relative cost units
 
 These are cost units for portfolio demonstration, not dollars or claimed financial savings. The goal is to connect model scores to a decision-support workflow.
 
+---
+
 ## Calibration
 
-`make calibration` reports Brier score, mean predicted risk, calibration by score decile, and calibration by risk tier. Scores are useful for ranking applicants, but they should not be treated as perfectly calibrated probability-of-default estimates without additional validation.
+`make calibration` reports:
+
+- Brier score
+- Mean predicted risk
+- Calibration by score decile
+- Calibration by risk tier
+
+Scores are useful for ranking applicants, but they should not be treated as perfectly calibrated probability-of-default estimates without additional validation.
+
+---
 
 ## Monitoring and Drift Simulation
 
-`make drift` runs a lightweight train-vs-holdout monitoring simulation using PSI, missing-rate deltas, and summary-statistic shifts. This is a simulation of monitoring expectations, not live production monitoring.
+`make drift` runs a lightweight train-vs-holdout monitoring simulation using:
+
+- Population Stability Index
+- Missing-rate deltas
+- Summary-statistic shifts
+
+This is a simulation of monitoring expectations, not live production monitoring.
+
+---
 
 ## Docker Demo
 
@@ -180,13 +323,19 @@ docker run -p 8501:8501 credit-risk-intelligence
 
 Docker runs the demo-mode Streamlit app unless local Kaggle data and trained model artifacts are mounted into the container.
 
+---
+
 ## Governance Notes
 
-`CODE_GENDER`, `NAME_EDUCATION_TYPE`, and `ORGANIZATION_TYPE` are retained for transparent portfolio diagnostics. A regulated lender would need legal, compliance, and model-risk review before using sensitive or proxy attributes. Removing protected attributes does not eliminate proxy bias.
+`CODE_GENDER`, `NAME_EDUCATION_TYPE`, and `ORGANIZATION_TYPE` are retained for transparent portfolio diagnostics.
+
+A regulated lender would need legal, compliance, and model-risk review before using sensitive or proxy attributes. Removing protected attributes does not eliminate proxy bias.
 
 SHAP values describe model behavior, not causality, and are not legally sufficient adverse-action reasons.
 
 Validation details are documented in [reports/validation_strategy.md](reports/validation_strategy.md).
+
+---
 
 ## Repository Structure
 
@@ -254,14 +403,51 @@ Credit-Risk-Intelligence-System/
 └── notebooks/                        Exploratory notebooks with outputs stripped to reduce repo weight
 ```
 
+---
 
 ## Limitations
 
-This is an applied ML portfolio project, not a production lending system. It lacks true temporal validation, live production drift monitoring, adverse-action governance, and formal legal compliance review. The configured champion uses application and bureau features; deeper relational training is optional and must be rerun locally with Kaggle tables. Scores should be used only to prioritize manual review in this demonstration.
+This is an applied machine learning portfolio project, not a production lending system.
+
+Current limitations include:
+
+- No true temporal validation across real lending periods
+- No live production monitoring or automated model retraining
+- No formal adverse-action notice generation
+- No legal or compliance review
+- No real lender cost data
+- No external validation on another credit-risk dataset
+- No production-grade model risk management process
+
+The configured champion model uses application and bureau features. Deeper relational training is available as an optional research workflow and must be rerun locally with the full Kaggle dataset.
+
+Model scores should only be interpreted as review-prioritization signals for this demonstration, not as final lending decisions.
+
+---
+
+## What I Learned
+
+This project reinforced that credit-risk machine learning is not just about maximizing ROC-AUC.
+
+A useful risk model also needs:
+
+- Clear threshold policy
+- Strong performance on imbalanced data
+- Explainable applicant-level outputs
+- Fairness and proxy-feature diagnostics
+- Calibration checks
+- Monitoring assumptions
+- Business translation into manual review workflows
+
+The biggest lesson was that a model is only useful if its outputs can be trusted, explained, governed, and used inside a realistic decision process.
+
+---
 
 ## Dataset
 
 [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk), used for educational and portfolio purposes.
+
+---
 
 ## License
 
