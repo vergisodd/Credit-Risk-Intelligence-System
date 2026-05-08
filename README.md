@@ -13,10 +13,9 @@ The system is designed as a **decision-support tool for credit risk analysts**, 
 
 [Live Demo](https://credit-risk-intelligence-system.streamlit.app)
 
-The hosted Streamlit app runs in **public demo mode** using committed reports, visuals, sample predictions, and reason codes.  
-Full live scoring requires running the project locally with the Kaggle data and trained model artifacts.
+The hosted Streamlit app runs in **public demo mode** using committed reports, visuals, sample predictions, and reason codes, so reviewers can inspect the workflow without downloading Kaggle data or training models locally.
 
-The public demo is intentionally artifact-based so reviewers can inspect the workflow without downloading Kaggle data or training models locally.
+Full live scoring requires running the project locally with the Kaggle data and trained model artifacts.
 
 ![Applicant Review Console](screenshots/Demo.gif)
 
@@ -48,24 +47,6 @@ The champion model improves ranking performance by combining applicant-level fea
 Average Precision is evaluated against an 8.07% default base rate, which makes it more meaningful than accuracy for this imbalanced classification problem.
 
 This project does **not** claim to automate lending decisions. The model is used to prioritize applicants for manual review and to support analyst decision-making.
-
----
-
-## Why This Project Matters
-
-Most student machine learning projects stop at model accuracy.
-
-This project goes further by treating credit risk as an operational decision problem:
-
-- Which applicants should be routed to manual review?
-- What threshold should be used for review prioritization?
-- How many defaults are captured at different review capacities?
-- Which features are driving applicant-level risk predictions?
-- Are sensitive or proxy attributes creating fairness concerns?
-- Are model scores calibrated enough to support decision-making?
-- What monitoring signals would matter before production use?
-
-The goal is not only to build a predictive model, but to show how model outputs can be governed, explained, monitored, and translated into a practical risk-review workflow.
 
 ---
 
