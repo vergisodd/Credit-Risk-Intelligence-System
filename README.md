@@ -1,10 +1,10 @@
 # Credit Risk Intelligence System
 
-**End-to-end credit risk review-prioritization system using the Home Credit Default Risk dataset.**
+**Credit risk intelligence system for prioritizing high-risk loan applicants.**
 
-This project builds a governed machine learning workflow that predicts applicant default risk, ranks applicants for manual review, explains model outputs with SHAP reason codes, and evaluates threshold, fairness, calibration, and drift risks.
+Built with the Home Credit Default Risk dataset, this project goes beyond default prediction by turning model scores into a governed analyst review workflow. It ranks applicants by default risk, explains predictions with SHAP reason codes, and evaluates threshold policy, fairness, calibration, drift, and business-impact tradeoffs.
 
-It is designed as a **decision-support system for credit risk analysts**, not as an automated loan approval or rejection engine.
+The system is designed as a **decision-support tool for credit risk analysts**, not an automated loan approval or rejection engine.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Analyst%20Console-red)
@@ -15,6 +15,8 @@ It is designed as a **decision-support system for credit risk analysts**, not as
 
 The hosted Streamlit app runs in **public demo mode** using committed reports, visuals, sample predictions, and reason codes.  
 Full live scoring requires running the project locally with the Kaggle data and trained model artifacts.
+
+The public demo is intentionally artifact-based so reviewers can inspect the workflow without downloading Kaggle data or training models locally.
 
 ![Applicant Review Console](screenshots/Demo.gif)
 
@@ -67,40 +69,26 @@ The goal is not only to build a predictive model, but to show how model outputs 
 
 ---
 
-## What Makes This More Than a Generic ML Demo
+## What Makes This Different
 
-This repository is structured as a credit-risk intelligence workflow, not just a notebook with a trained model.
+Most student ML projects stop after training a model and reporting accuracy.
 
-Key upgrades include:
+This project treats credit risk as a governed decision-support workflow. It connects model scores to manual review queues, threshold policy, reason codes, fairness diagnostics, calibration checks, drift monitoring assumptions, and business-impact tradeoffs.
 
-- A config-driven champion model registry in `config.yaml`
-- A model manifest documenting artifact paths, feature set, metrics, threshold policy, scope, and limitations
-- Separate workflows for training, evaluation, explainability, fairness, calibration, drift, score deciles, and business-impact simulation
-- Explicit separation between default thresholds, F1-optimal thresholds, cost-minimizing thresholds, and risk-tier thresholds
-- Applicant-level SHAP reason codes showing positive and negative risk contributors
-- Fairness diagnostics across sensitive and proxy attributes
-- Calibration analysis to test whether risk scores behave like reliable probability estimates
-- Drift simulation using train-vs-holdout monitoring signals
-- Streamlit analyst console for applicant review and risk triage
-- Reproducible commands through Makefile, tests, Docker, Ruff/Black, and GitHub Actions CI
+The result is not just a prediction model. It is a prototype of how a credit risk analyst could inspect, prioritize, and challenge model-driven risk signals.
 
 ---
 
 ## Key Skills Demonstrated
 
 - End-to-end machine learning pipeline design
-- Credit risk classification using Logistic Regression, XGBoost, LightGBM, and LightGBM+Bureau
-- Feature engineering from application and bureau-level credit data
-- Optional relational feature engineering from previous applications, installments, POS cash, credit card, and bureau balance tables
+- Credit risk classification with Logistic Regression, XGBoost, LightGBM, and LightGBM+Bureau
+- Feature engineering from applicant and bureau-level credit data
 - Imbalanced classification evaluation using ROC-AUC, Average Precision, recall, precision, F1, and lift
 - Threshold optimization for manual review prioritization
-- Score decile and cumulative default capture analysis
-- Business-impact simulation using review-capacity and cost-unit assumptions
 - SHAP explainability and applicant-level reason-code generation
-- Fairness diagnostics across sensitive and proxy attributes
-- Calibration and drift-monitoring reports
-- Streamlit dashboard development for analyst workflows
-- Reproducible project structure with Makefile, tests, Docker, Ruff/Black, and GitHub Actions CI
+- Fairness, calibration, drift, and monitoring diagnostics
+- Streamlit dashboard development, Docker, CI, tests, Ruff/Black, and Makefile automation
 
 ---
 
@@ -260,7 +248,7 @@ The report validates whether top-risk bands have default rates above the 8.07% b
 
 ---
 
-## Business Impact Simulation
+## Review Policy and Business Impact Simulation
 
 The model is evaluated as a review-routing policy, not as an automated decision engine.
 
