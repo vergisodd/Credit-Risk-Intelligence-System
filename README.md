@@ -26,14 +26,14 @@ The public demo is intentionally artifact-based so reviewers can inspect the wor
 
 | Area | What This Project Demonstrates |
 |---|---|
-| Problem | Credit default risk review prioritization |
-| Dataset | Home Credit Default Risk Kaggle dataset |
-| Champion Model | LightGBM with application and bureau features |
-| Best ROC-AUC | 0.7746 |
-| Best Average Precision | 0.2681 against an 8.07% default base rate |
-| Main Workflow | Data cleaning, feature engineering, model training, evaluation, thresholding, explainability, fairness, calibration, drift simulation, and dashboarding |
-| Deployment | Streamlit analyst console with public demo mode |
-| Engineering | Makefile, Docker, tests, CI, config-driven champion model registry |
+| Problem | Credit default risk review prioritization for manual analyst review |
+| Dataset | Home Credit Default Risk dataset with 307,511 applicant records |
+| Champion Model | LightGBM+Bureau using application and bureau-level credit features |
+| Best Result | 0.7746 ROC-AUC and 0.2681 Average Precision against an 8.07% default base rate |
+| Analyst Workflow | Applicant risk scoring, review queue prioritization, SHAP reason codes, and risk-tier assignment |
+| Governance | Threshold policy, fairness diagnostics, calibration checks, drift simulation, and model limitations |
+| Deployment | Streamlit analyst console with public demo mode and local live-scoring mode |
+| Engineering | Config-driven champion registry, Makefile, Docker, tests, Ruff/Black, and GitHub Actions CI |
 
 ---
 
